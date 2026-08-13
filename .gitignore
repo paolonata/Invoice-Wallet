@@ -9,3 +9,9 @@ android/build/
 android/app/build/
 android/local.properties
 *.apk
+
+# Chiavi di firma: vivono nei GitHub Secrets, mai nel repository
+android/keystore/
+*.jks
+*.p12
+*.keystore

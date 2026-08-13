@@ -37,15 +37,31 @@ Oltre alla versione web c'è un'app vera e propria, che impacchetta tutto dentro
    installa *sopra* quello vecchio — niente disinstallazione, gli scontrini restano.
    L'app controlla da sola due volte al giorno se c'è una versione più recente.
 
-Funziona così perché ogni build è firmata con la stessa chiave
-(`android/keystore/invoice-wallet.jks`) e ha un `versionCode` sempre più alto:
-sono le due condizioni che Android richiede per un aggiornamento in place.
+Funziona così perché ogni build è firmata con la stessa chiave e ha un
+`versionCode` sempre più alto: sono le due condizioni che Android richiede per
+un aggiornamento in place.
 
-> La chiave di firma è nel repository per rendere le build ripetibili senza
-> configurazione. Se un domani rendi pubblico il repo, spostala nei GitHub Secrets:
-> il build accetta già `IW_STORE_FILE`, `IW_STORE_PASSWORD`, `IW_KEY_ALIAS`,
-> `IW_KEY_PASSWORD` come variabili d'ambiente. **Non perdere quel file**: senza,
-> le versioni future non si installerebbero più sopra quelle vecchie.
+### La chiave di firma
+
+La chiave **non sta nel repository**: vive nei GitHub Secrets del progetto.
+
+| Segreto | Cosa contiene |
+|---|---|
+| `IW_KEYSTORE_BASE64` | il file `.jks` codificato in base64 |
+| `IW_STORE_PASSWORD` | la password della chiave |
+| `IW_KEY_ALIAS` | facoltativo, solo se l'alias non è `invoice-wallet` |
+
+Senza quei segreti il workflow compila comunque l'APK (con una chiave usa e getta,
+utile per verificare che il codice stia in piedi) ma **non pubblica nessuna
+release**: meglio niente che un APK firmato con una chiave sbagliata.
+
+> **Conserva il file `.jks` e la password in un posto sicuro.** Se li perdi, le
+> versioni future non si installeranno più sopra quelle già sul telefono: si
+> ripartirebbe da una disinstallazione, con tutti gli scontrini da riprendere dal backup.
+
+Per compilare in locale metti la chiave in `android/keystore/local.jks` (è già
+esclusa da git) oppure passa `IW_STORE_FILE`, `IW_STORE_PASSWORD`, `IW_KEY_ALIAS`,
+`IW_KEY_PASSWORD` come variabili d'ambiente.
 
 ### Scadenze per resi e cambi
 
@@ -100,7 +116,6 @@ assets/js/
 tools/gen-icons.js       rigenera le icone PNG (node tools/gen-icons.js icons)
 android/                 contenitore Android: WebView + ponte per salvare i file
   app/src/main/java/…    MainActivity, FileBridge (download), UpdateChecker
-  keystore/              chiave di firma, sempre la stessa
 .github/workflows/       pages.yml (sito) e android.yml (APK + Release)
 ```
 

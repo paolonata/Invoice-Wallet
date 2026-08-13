@@ -28,14 +28,17 @@ android {
     buildConfigField 'String', 'UPDATE_REPO', "\"${System.getenv('IW_REPO') ?: 'paolonata/Invoice-Wallet'}\""
   }
 
+  /*
+   * La chiave di firma non sta nel repository: arriva dai GitHub Secrets
+   * (decodificata in un file temporaneo dal workflow) oppure, in locale,
+   * da android/keystore/local.jks che è escluso da git.
+   */
   signingConfigs {
     release {
-      // Di default la chiave del repository; le variabili d'ambiente permettono
-      // di spostarla nei GitHub Secrets senza toccare il codice.
-      storeFile file(System.getenv('IW_STORE_FILE') ?: "${rootDir}/${IW_STORE_FILE}")
-      storePassword System.getenv('IW_STORE_PASSWORD') ?: IW_STORE_PASSWORD
-      keyAlias System.getenv('IW_KEY_ALIAS') ?: IW_KEY_ALIAS
-      keyPassword System.getenv('IW_KEY_PASSWORD') ?: IW_KEY_PASSWORD
+      storeFile file(System.getenv('IW_STORE_FILE') ?: "${rootDir}/keystore/local.jks")
+      storePassword System.getenv('IW_STORE_PASSWORD') ?: ''
+      keyAlias System.getenv('IW_KEY_ALIAS') ?: 'invoice-wallet'
+      keyPassword System.getenv('IW_KEY_PASSWORD') ?: ''
       enableV1Signing true
       enableV2Signing true
       enableV3Signing true
