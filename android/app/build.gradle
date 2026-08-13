@@ -91,6 +91,19 @@ tasks.configureEach { task ->
   if (task.name.startsWith('merge') && task.name.endsWith('Assets')) task.dependsOn('syncWebApp')
 }
 
+/*
+ * appcompat e webkit portano versioni diverse della libreria standard Kotlin:
+ * dalla 1.8 gli artefatti jdk7/jdk8 sono contenitori vuoti, quindi allineando
+ * tutto alla stessa versione le classi duplicate spariscono.
+ */
+configurations.configureEach {
+  resolutionStrategy {
+    force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.24'
+    force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.24'
+    force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.24'
+  }
+}
+
 dependencies {
   implementation 'androidx.appcompat:appcompat:1.7.0'
   implementation 'androidx.webkit:webkit:1.12.1'
