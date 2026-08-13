@@ -3,7 +3,7 @@
    Tutto gira nel browser: nessun account, nessun server.
    ══════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 
 const DEFAULT_SETTINGS = {
   theme: 'auto',        // auto | light | dark
@@ -852,7 +852,8 @@ async function quickSaveMany(photos) {
     const receipt = {
       id, title: '', amount: null, currency: cur(), date: todayISO(),
       category: 'altro', note: '', photoIds: [p.id], thumb: p.thumb,
-      favorite: false, warrantyUntil: null, returnUntil: null, createdAt: now, updatedAt: now,
+      favorite: false, warrantyUntil: null, warrantyYears: null,
+      returnUntil: null, returnDays: null, createdAt: now, updatedAt: now,
     };
     await DB.saveReceiptWithPhotos(receipt, [{ id: p.id, receiptId: id, blob: p.blob, width: p.width, height: p.height, createdAt: now }]);
   }
@@ -880,6 +881,10 @@ async function openEditor({ receipt = null, photos = null }) {
     favorite: !!receipt?.favorite,
     warrantyUntil: receipt?.warrantyUntil || null,
     returnUntil: receipt?.returnUntil || null,
+    // Scorciatoia scelta (es. 30 giorni, 2 anni): serve a ricalcolare la
+    // scadenza quando cambia la data dello scontrino.
+    returnDays: receipt?.returnDays ?? null,
+    warrantyYears: receipt?.warrantyYears ?? null,
   };
 
   const body = `
@@ -932,10 +937,8 @@ async function openEditor({ receipt = null, photos = null }) {
     </div>
     <div class="field" id="f-ret-wrap" ${draft.returnUntil ? '' : 'hidden'}>
       <div class="quickdates" id="f-ret-quick">
-        <button type="button" data-days="8">8 giorni</button>
-        <button type="button" data-days="14">14 giorni</button>
-        <button type="button" data-days="30">30 giorni</button>
-        <button type="button" data-days="60">60 giorni</button>
+        ${[8, 14, 30, 60].map((d) => `
+          <button type="button" data-days="${d}" class="${draft.returnDays === d ? 'is-active' : ''}">${d} giorni</button>`).join('')}
       </div>
       <input class="input" type="date" id="f-return" value="${esc(draft.returnUntil || '')}">
     </div>
@@ -946,10 +949,8 @@ async function openEditor({ receipt = null, photos = null }) {
     </div>
     <div class="field" id="f-war-wrap" ${draft.warrantyUntil ? '' : 'hidden'}>
       <div class="quickdates" id="f-war-quick">
-        <button type="button" data-years="1">1 anno</button>
-        <button type="button" data-years="2">2 anni</button>
-        <button type="button" data-years="3">3 anni</button>
-        <button type="button" data-years="5">5 anni</button>
+        ${[1, 2, 3, 5].map((y) => `
+          <button type="button" data-years="${y}" class="${draft.warrantyYears === y ? 'is-active' : ''}">${y} ${y === 1 ? 'anno' : 'anni'}</button>`).join('')}
       </div>
       <input class="input" type="date" id="f-warranty" value="${esc(draft.warrantyUntil || '')}">
     </div>`;
@@ -1006,39 +1007,79 @@ async function openEditor({ receipt = null, photos = null }) {
         favSw.setAttribute('aria-checked', draft.favorite);
       });
 
-      // Scadenze: interruttore + scorciatoie calcolate dalla data dello scontrino.
-      const setupDeadline = (rowId, switchId, wrapId, quickId, inputId, fallback) => {
+      /*
+       * Scadenze. La scorciatoia scelta ("30 giorni", "2 anni") resta
+       * memorizzata: se poi correggi la data dello scontrino, la scadenza
+       * si sposta con lei invece di restare ferma su un calcolo vecchio.
+       * Una data scritta a mano invece non viene mai toccata.
+       */
+      const purchaseDate = () => $('#f-date', sheet).value || todayISO();
+      const deadlines = [];
+
+      const setupDeadline = ({ rowId, switchId, wrapId, quickId, inputId, unit, fallback, preset }) => {
         const sw = $(switchId, sheet);
         const wrap = $(wrapId, sheet);
         const input = $(inputId, sheet);
+        const quick = $(quickId, sheet);
+        const state = { sw, input, quick, unit, preset };
+
+        const applyPreset = (value) => {
+          state.preset = value;
+          input.value = unit === 'days'
+            ? shiftDays(purchaseDate(), value)
+            : shiftYears(purchaseDate(), value);
+          $$(`${quickId} button`, sheet).forEach((b) => b.classList.toggle(
+            'is-active', Number(b.dataset.days ?? b.dataset.years) === value));
+        };
+        state.applyPreset = applyPreset;
 
         $(rowId, sheet).addEventListener('click', () => {
           const on = !sw.classList.contains('is-on');
           sw.classList.toggle('is-on', on);
           sw.setAttribute('aria-checked', on);
           wrap.hidden = !on;
-          if (on && !input.value) input.value = fallback();
+          if (on && !input.value) applyPreset(fallback);
           haptic(8);
         });
 
-        $(quickId, sheet).addEventListener('click', (e) => {
+        quick.addEventListener('click', (e) => {
           const btn = e.target.closest('[data-days], [data-years]');
           if (!btn) return;
-          const from = $('#f-date', sheet).value || todayISO();
-          input.value = btn.dataset.days
-            ? shiftDays(from, Number(btn.dataset.days))
-            : shiftYears(from, Number(btn.dataset.years));
-          $$(`${quickId} button`, sheet).forEach((b) => b.classList.toggle('is-active', b === btn));
+          applyPreset(Number(btn.dataset.days ?? btn.dataset.years));
           haptic(8);
         });
 
-        return sw;
+        // Data scelta a mano: da quel momento comanda quella.
+        input.addEventListener('input', () => {
+          state.preset = null;
+          $$(`${quickId} button`, sheet).forEach((b) => b.classList.remove('is-active'));
+        });
+
+        deadlines.push(state);
+        return state;
       };
 
-      const retSw = setupDeadline('#f-ret-row', '#f-ret', '#f-ret-wrap', '#f-ret-quick', '#f-return',
-        () => shiftDays($('#f-date', sheet).value || todayISO(), 30));
-      const warSw = setupDeadline('#f-war-row', '#f-war', '#f-war-wrap', '#f-war-quick', '#f-warranty',
-        () => shiftYears($('#f-date', sheet).value || todayISO(), 2));
+      const ret = setupDeadline({
+        rowId: '#f-ret-row', switchId: '#f-ret', wrapId: '#f-ret-wrap',
+        quickId: '#f-ret-quick', inputId: '#f-return',
+        unit: 'days', fallback: 30, preset: draft.returnDays,
+      });
+      const war = setupDeadline({
+        rowId: '#f-war-row', switchId: '#f-war', wrapId: '#f-war-wrap',
+        quickId: '#f-war-quick', inputId: '#f-warranty',
+        unit: 'years', fallback: 2, preset: draft.warrantyYears,
+      });
+
+      // Cambio la data dello scontrino: le scadenze basate su una scorciatoia
+      // si ricalcolano da sola, quelle scritte a mano restano dove sono.
+      $('#f-date', sheet).addEventListener('change', () => {
+        const spostate = deadlines.filter((d) => d.preset != null && d.sw.classList.contains('is-on'));
+        spostate.forEach((d) => d.applyPreset(d.preset));
+        if (spostate.length) toast('Scadenze aggiornate alla nuova data', { icon: 'clock', duration: 2600 });
+      });
+
+      const retSw = ret.sw;
+      const warSw = war.sw;
 
       sheet.querySelector('[data-cancel]').addEventListener('click', () => close());
 
@@ -1057,7 +1098,9 @@ async function openEditor({ receipt = null, photos = null }) {
               note: $('#f-note', sheet).value.trim(),
               favorite: draft.favorite,
               warrantyUntil: warSw.classList.contains('is-on') ? ($('#f-warranty', sheet).value || null) : null,
+              warrantyYears: warSw.classList.contains('is-on') ? war.preset : null,
               returnUntil: retSw.classList.contains('is-on') ? ($('#f-return', sheet).value || null) : null,
+              returnDays: retSw.classList.contains('is-on') ? ret.preset : null,
             },
           });
           close();
@@ -1227,7 +1270,8 @@ async function exportBackup() {
       meta.push({
         id: r.id, title: r.title, amount: r.amount, currency: r.currency,
         date: r.date, category: r.category, note: r.note, favorite: !!r.favorite,
-        warrantyUntil: r.warrantyUntil || null, returnUntil: r.returnUntil || null,
+        warrantyUntil: r.warrantyUntil || null, warrantyYears: r.warrantyYears ?? null,
+        returnUntil: r.returnUntil || null, returnDays: r.returnDays ?? null,
         createdAt: r.createdAt, updatedAt: r.updatedAt,
         photos: names,
       });
@@ -1298,7 +1342,9 @@ async function importBackup(file) {
         id: r.id,
         title: r.title || '', amount: r.amount ?? null, currency: r.currency || cur(),
         date: r.date || todayISO(), category: r.category || 'altro', note: r.note || '',
-        favorite: !!r.favorite, warrantyUntil: r.warrantyUntil || null, returnUntil: r.returnUntil || null,
+        favorite: !!r.favorite,
+        warrantyUntil: r.warrantyUntil || null, warrantyYears: r.warrantyYears ?? null,
+        returnUntil: r.returnUntil || null, returnDays: r.returnDays ?? null,
         photoIds: photoRecords.map((p) => p.id),
         thumb: await makeThumb(photoRecords[0].blob),
         createdAt: r.createdAt || now, updatedAt: now,
