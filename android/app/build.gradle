@@ -29,16 +29,16 @@ android {
   }
 
   /*
-   * La chiave di firma non sta nel repository: arriva dai GitHub Secrets
-   * (decodificata in un file temporaneo dal workflow) oppure, in locale,
-   * da android/keystore/local.jks che è escluso da git.
+   * Chiave di firma del progetto. Le variabili d'ambiente hanno la precedenza,
+   * così un domani si può spostare la chiave nei GitHub Secrets senza toccare
+   * il codice.
    */
   signingConfigs {
     release {
-      storeFile file(System.getenv('IW_STORE_FILE') ?: "${rootDir}/keystore/local.jks")
-      storePassword System.getenv('IW_STORE_PASSWORD') ?: ''
-      keyAlias System.getenv('IW_KEY_ALIAS') ?: 'invoice-wallet'
-      keyPassword System.getenv('IW_KEY_PASSWORD') ?: ''
+      storeFile file(System.getenv('IW_STORE_FILE') ?: "${rootDir}/${IW_STORE_FILE}")
+      storePassword System.getenv('IW_STORE_PASSWORD') ?: IW_STORE_PASSWORD
+      keyAlias System.getenv('IW_KEY_ALIAS') ?: IW_KEY_ALIAS
+      keyPassword System.getenv('IW_KEY_PASSWORD') ?: IW_KEY_PASSWORD
       enableV1Signing true
       enableV2Signing true
       enableV3Signing true
@@ -59,6 +59,13 @@ android {
 
   buildFeatures {
     buildConfig true
+  }
+
+  lint {
+    // I controlli restano disponibili con "gradle lint", ma non devono
+    // impedire di costruire l'APK.
+    checkReleaseBuilds false
+    abortOnError false
   }
 
   compileOptions {

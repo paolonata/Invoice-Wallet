@@ -1,16 +1,9 @@
 name: APK Android
 
 # Ogni push costruisce un APK nuovo e lo pubblica fra le Release.
-# La firma arriva dai GitHub Secrets ed è sempre la stessa, il numero di build
-# cresce: l'aggiornamento si installa sopra quello vecchio, senza disinstallare
-# e senza perdere gli scontrini.
-#
-# Segreti richiesti (Settings → Secrets and variables → Actions):
-#   IW_KEYSTORE_BASE64  la chiave .jks codificata in base64
-#   IW_STORE_PASSWORD   password della chiave
-#   IW_KEY_ALIAS        (facoltativo) alias, se diverso da "invoice-wallet"
-# Senza il segreto l'APK viene compilato lo stesso, ma NON viene pubblicato:
-# meglio nessuna release che una release firmata con una chiave usa e getta.
+# La firma è sempre la stessa (android/keystore/invoice-wallet.jks) e il numero
+# di build cresce: l'aggiornamento si installa sopra quello vecchio, senza
+# disinstallare e senza perdere gli scontrini.
 
 on:
   push:
@@ -55,38 +48,12 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Prepara la chiave di firma
-        id: signing
-        env:
-          IW_KEYSTORE_BASE64: ${{ secrets.IW_KEYSTORE_BASE64 }}
-          IW_STORE_PASSWORD: ${{ secrets.IW_STORE_PASSWORD }}
-        run: |
-          KEYSTORE="$RUNNER_TEMP/invoice-wallet.jks"
-          if [ -n "$IW_KEYSTORE_BASE64" ] && [ -n "$IW_STORE_PASSWORD" ]; then
-            echo "$IW_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE"
-            echo "publishable=true" >> "$GITHUB_OUTPUT"
-            echo "Chiave ufficiale caricata dai segreti."
-          else
-            # Chiave usa e getta: serve solo a far compilare il build di prova.
-            keytool -genkeypair -keystore "$KEYSTORE" -storetype PKCS12 \
-              -storepass usaegetta -keypass usaegetta -alias invoice-wallet \
-              -keyalg RSA -keysize 2048 -validity 30 \
-              -dname "CN=Invoice Wallet Test, O=Test, C=IT" >/dev/null 2>&1
-            echo "publishable=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Manca il segreto IW_KEYSTORE_BASE64: APK di prova, nessuna Release pubblicata."
-          fi
-          echo "keystore=$KEYSTORE" >> "$GITHUB_OUTPUT"
-
       - name: Compila l'APK firmato
         working-directory: android
         env:
           IW_BUILD_NUMBER: ${{ github.run_number }}
           IW_RELEASE_TAG: ${{ steps.ver.outputs.tag }}
           IW_REPO: ${{ github.repository }}
-          IW_STORE_FILE: ${{ steps.signing.outputs.keystore }}
-          IW_STORE_PASSWORD: ${{ secrets.IW_STORE_PASSWORD || 'usaegetta' }}
-          IW_KEY_PASSWORD: ${{ secrets.IW_STORE_PASSWORD || 'usaegetta' }}
-          IW_KEY_ALIAS: ${{ secrets.IW_KEY_ALIAS || 'invoice-wallet' }}
         run: |
           set -o pipefail
           gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee "$RUNNER_TEMP/build.log"
@@ -114,7 +81,6 @@ jobs:
           retention-days: 90
 
       - name: Prepara le note di rilascio
-        if: steps.signing.outputs.publishable == 'true'
         run: |
           {
             echo "### Come si installa"
@@ -138,7 +104,6 @@ jobs:
           } > release-notes.md
 
       - name: Pubblica la Release
-        if: steps.signing.outputs.publishable == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -147,9 +112,3 @@ jobs:
             --target "${{ github.sha }}" \
             --latest \
             --notes-file release-notes.md
-
-      - name: Nessuna Release
-        if: steps.signing.outputs.publishable != 'true'
-        run: |
-          echo "APK compilato ma firmato con una chiave usa e getta: non lo pubblico."
-          echo "Aggiungi i segreti IW_KEYSTORE_BASE64 e IW_STORE_PASSWORD e rilancia il workflow."

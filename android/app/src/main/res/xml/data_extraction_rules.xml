@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cosa entra nel backup di Android (cloud e trasferimento su un telefono nuovo):
+  il database degli scontrini e l'archivio della WebView, dove vivono le foto.
+-->
 <data-extraction-rules>
   <cloud-backup>
     <include domain="database" path="." />
     <include domain="file" path="app_webview" />
-    <exclude domain="root" path="cache" />
   </cloud-backup>
   <device-transfer>
     <include domain="database" path="." />
     <include domain="file" path="app_webview" />
-    <exclude domain="root" path="cache" />
   </device-transfer>
 </data-extraction-rules>

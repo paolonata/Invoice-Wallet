@@ -43,25 +43,21 @@ un aggiornamento in place.
 
 ### La chiave di firma
 
-La chiave **non sta nel repository**: vive nei GitHub Secrets del progetto.
+Ogni build usa `android/keystore/invoice-wallet.jks`, versionata nel repository
+proprio per rendere le build ripetibili senza configurare niente. È la scelta
+comoda per un'app personale installata a mano.
 
-| Segreto | Cosa contiene |
-|---|---|
-| `IW_KEYSTORE_BASE64` | il file `.jks` codificato in base64 |
-| `IW_STORE_PASSWORD` | la password della chiave |
-| `IW_KEY_ALIAS` | facoltativo, solo se l'alias non è `invoice-wallet` |
+> Il rovescio della medaglia: chiunque legga il repository può firmare un APK con
+> la stessa chiave. Perché sia un problema dovrebbe comunque convincerti a
+> scaricarlo e installarlo a mano, quindi per un uso personale è un rischio
+> accettabile. Se un domani vuoi chiudere anche quello, sposta la chiave nei
+> GitHub Secrets: il build legge già `IW_STORE_FILE`, `IW_STORE_PASSWORD`,
+> `IW_KEY_ALIAS` e `IW_KEY_PASSWORD` dalle variabili d'ambiente, che hanno la
+> precedenza su quelle del file `gradle.properties`.
 
-Senza quei segreti il workflow compila comunque l'APK (con una chiave usa e getta,
-utile per verificare che il codice stia in piedi) ma **non pubblica nessuna
-release**: meglio niente che un APK firmato con una chiave sbagliata.
-
-> **Conserva il file `.jks` e la password in un posto sicuro.** Se li perdi, le
-> versioni future non si installeranno più sopra quelle già sul telefono: si
-> ripartirebbe da una disinstallazione, con tutti gli scontrini da riprendere dal backup.
-
-Per compilare in locale metti la chiave in `android/keystore/local.jks` (è già
-esclusa da git) oppure passa `IW_STORE_FILE`, `IW_STORE_PASSWORD`, `IW_KEY_ALIAS`,
-`IW_KEY_PASSWORD` come variabili d'ambiente.
+**Non perdere quel file.** Senza, le versioni future non si installerebbero più
+sopra quelle già sul telefono: si ripartirebbe da una disinstallazione, con gli
+scontrini da recuperare dal backup `.zip`.
 
 ### Scadenze per resi e cambi
 
