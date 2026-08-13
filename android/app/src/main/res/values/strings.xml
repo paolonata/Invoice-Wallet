@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">Invoice Wallet</string>
+  <string name="pick_photos">Scegli le foto</string>
+  <string name="share_with">Condividi con…</string>
+  <string name="no_camera_app">Nessuna app fotocamera disponibile</string>
+  <string name="update_title">Nuova versione disponibile</string>
+  <string name="update_message">È pronta la versione %1$s. Si installa sopra questa: gli scontrini restano dove sono.</string>
+  <string name="update_download">Scarica</string>
+  <string name="update_later">Più tardi</string>
+</resources>

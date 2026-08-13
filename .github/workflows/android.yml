@@ -1,0 +1,100 @@
+name: APK Android
+
+# Ogni push costruisce un APK nuovo e lo pubblica fra le Release.
+# La firma è sempre la stessa e il numero di build cresce: l'aggiornamento
+# si installa sopra quello vecchio, senza disinstallare e senza perdere dati.
+
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths:
+      - 'index.html'
+      - 'sw.js'
+      - 'manifest.webmanifest'
+      - 'assets/**'
+      - 'icons/**'
+      - 'android/**'
+      - 'VERSION'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Leggi la versione
+        id: ver
+        run: |
+          BASE=$(cat VERSION | tr -d '[:space:]')
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "tag=v$BASE.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Compila l'APK firmato
+        working-directory: android
+        env:
+          IW_BUILD_NUMBER: ${{ github.run_number }}
+          IW_RELEASE_TAG: ${{ steps.ver.outputs.tag }}
+          IW_REPO: ${{ github.repository }}
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Rinomina l'APK
+        id: apk
+        run: |
+          SRC=android/app/build/outputs/apk/release/app-release.apk
+          DEST="invoice-wallet-${{ steps.ver.outputs.tag }}.apk"
+          cp "$SRC" "$DEST"
+          echo "path=$DEST" >> "$GITHUB_OUTPUT"
+          echo "size=$(du -h "$DEST" | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: invoice-wallet-apk
+          path: ${{ steps.apk.outputs.path }}
+          retention-days: 90
+
+      - name: Pubblica la Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.ver.outputs.tag }}" "${{ steps.apk.outputs.path }}" \
+            --title "Invoice Wallet ${{ steps.ver.outputs.base }} (build ${{ github.run_number }})" \
+            --target "${{ github.sha }}" \
+            --latest \
+            --notes "$(cat <<'NOTE'
+### Come si installa
+
+1. Apri questa pagina **dal telefono** e scarica il file `.apk`.
+2. Tocca il file scaricato e conferma l'installazione.
+3. La prima volta Android chiede di autorizzare l'installazione da questa fonte: è normale per le app non pubblicate sul Play Store.
+
+### Aggiornamenti
+
+Basta scaricare e toccare l'APK nuovo: si installa **sopra** quello vecchio.
+Non serve disinstallare e **gli scontrini restano tutti al loro posto**, perché
+ogni build è firmata con la stessa chiave. L'app controlla da sola se c'è una
+versione nuova e te lo dice all'avvio.
+
+### Privacy
+
+Foto e importi restano dentro il telefono. L'unica connessione che l'app apre è
+il controllo aggiornamenti verso GitHub.
+NOTE
+)"

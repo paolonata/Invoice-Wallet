@@ -40,6 +40,9 @@ const ICONS = (() => {
     warn:     s('<path d="M10.3 4.3 2.9 17.2a2 2 0 0 0 1.7 3h14.8a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9.5v4M12 16.8v.4"/>'),
     zoom:     s('<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5M8.5 11h5M11 8.5v5"/>'),
     more:     s('<circle cx="5.5" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.7" fill="currentColor" stroke="none"/>'),
+    clock:    s('<circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.1 2.1"/>'),
+    ret:      s('<path d="M4 9.5h11.5a4.5 4.5 0 0 1 0 9H10"/><path d="M7.5 5.5 3.5 9.5l4 4"/>'),
+    hourglass: s('<path d="M7 3.5h10M7 20.5h10"/><path d="M8 3.5v3.2c0 1.2.5 2.3 1.4 3L12 12l-2.6 2.3c-.9.7-1.4 1.8-1.4 3v3.2"/><path d="M16 3.5v3.2c0 1.2-.5 2.3-1.4 3L12 12l2.6 2.3c.9.7 1.4 1.8 1.4 3v3.2"/>'),
     copy:     s('<rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2.2"/><path d="M15.5 5.8V5a1.5 1.5 0 0 0-1.5-1.5H5.5A1.5 1.5 0 0 0 4 5v8.5A1.5 1.5 0 0 0 5.5 15h.8"/>'),
     wallet:   s('<path d="M3.5 8.2A2.7 2.7 0 0 1 6.2 5.5h11.6a2.7 2.7 0 0 1 2.7 2.7v9.1a2.7 2.7 0 0 1-2.7 2.7H6.2a2.7 2.7 0 0 1-2.7-2.7Z"/><path d="M20.5 11h-4a1.8 1.8 0 0 0 0 3.6h4"/>'),
   };

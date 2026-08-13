@@ -52,6 +52,8 @@
       <div class="months" id="months" role="tablist" aria-label="Periodo"></div>
     </header>
 
+    <button class="alertbar" id="alertbar" hidden></button>
+
     <section class="summary" id="summary">
       <div class="summary__glow" aria-hidden="true"></div>
       <div class="summary__label" id="summary-label">Totale</div>
@@ -104,6 +106,20 @@
     <div class="stack" id="stats-body"></div>
   </main>
 
+  <!-- ─────── SCADENZE ─────── -->
+  <main id="view-deadlines" class="view" data-view="deadlines" hidden>
+    <header class="topbar topbar--simple">
+      <div class="topbar__row"><h1 class="title">Scadenze</h1></div>
+      <p class="topbar__hint">Fino a quando puoi fare un reso, un cambio o usare la garanzia.</p>
+      <div class="segmented" id="deadlines-filter">
+        <button data-kind="tutte" class="is-active">Tutte</button>
+        <button data-kind="reso">Resi e cambi</button>
+        <button data-kind="garanzia">Garanzia</button>
+      </div>
+    </header>
+    <div class="stack" id="deadlines-body"></div>
+  </main>
+
   <!-- ─────── IMPOSTAZIONI ─────── -->
   <main id="view-settings" class="view" data-view="settings" hidden>
     <header class="topbar topbar--simple">
@@ -132,10 +148,13 @@
   <!-- ─────── NAV ─────── -->
   <nav class="tabbar" id="tabbar">
     <button class="tab is-active" data-tab="home"><span data-icon="receipt"></span><em>Scontrini</em></button>
-    <button class="tab" data-tab="stats"><span data-icon="chart"></span><em>Statistiche</em></button>
+    <button class="tab" data-tab="deadlines">
+      <span data-icon="clock"></span><em>Scadenze</em>
+      <span class="tabbadge" id="tab-badge" hidden></span>
+    </button>
     <div class="tabbar__slot" aria-hidden="true"></div>
+    <button class="tab" data-tab="stats"><span data-icon="chart"></span><em>Statistiche</em></button>
     <button class="tab" data-tab="settings"><span data-icon="settings"></span><em>Impostazioni</em></button>
-    <div class="tabbar__spacer" aria-hidden="true"></div>
   </nav>
 
   <button class="fab" id="fab" aria-label="Aggiungi scontrino"><span data-icon="plus"></span></button>

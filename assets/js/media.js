@@ -125,8 +125,50 @@ async function dataURLToBlob(dataURL) {
   return res.blob();
 }
 
-/* ── Uscita: download e condivisione ─────────────────────────── */
-function downloadBlob(blob, filename) {
+/* ══════════════════════════════════════════════════════════════
+   Uscita dei file.
+   Nel browser: link di download o condivisione di sistema.
+   Dentro l'app Android i "blob:" non sono scaricabili, quindi il file
+   viene passato a pezzi al contenitore nativo, che lo scrive davvero.
+   ══════════════════════════════════════════════════════════════ */
+
+const androidHost = (() => {
+  try {
+    return (typeof AndroidHost !== 'undefined' && AndroidHost.platform() === 'android') ? AndroidHost : null;
+  } catch {
+    return null;
+  }
+})();
+
+const isAndroidApp = !!androidHost;
+
+function androidVersion() {
+  try { return androidHost ? androidHost.versionName() : ''; } catch { return ''; }
+}
+
+async function blobToBase64(blob) {
+  const dataURL = await blobToDataURL(blob);
+  return dataURL.slice(dataURL.indexOf(',') + 1);
+}
+
+/** @param mode 'save' (cartella Download) oppure 'share' (menu condivisione). */
+async function hostSaveFile(blob, filename, mode = 'save') {
+  const token = androidHost.fileBegin(filename, blob.type || 'application/octet-stream');
+  if (!token) throw new Error('Salvataggio non disponibile');
+  const CHUNK = 768 * 1024;
+  try {
+    for (let offset = 0; offset < blob.size; offset += CHUNK) {
+      const chunk = await blobToBase64(blob.slice(offset, offset + CHUNK));
+      if (!androidHost.fileChunk(token, chunk)) throw new Error('Scrittura interrotta');
+    }
+    return androidHost.fileEnd(token, mode) || '';
+  } catch (err) {
+    try { androidHost.fileAbort(token); } catch { /* già chiuso */ }
+    throw err;
+  }
+}
+
+function downloadBlobInBrowser(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -138,21 +180,35 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
+/** Fa uscire il file dall'app. Restituisce dove è finito ('' nel browser). */
+async function downloadBlob(blob, filename) {
+  if (androidHost) return hostSaveFile(blob, filename, 'save');
+  downloadBlobInBrowser(blob, filename);
+  return '';
+}
+
 function canShareFiles(files) {
   return !!(navigator.canShare && navigator.share && navigator.canShare({ files }));
 }
 
-/** Condivide (o scarica, se il device non supporta la condivisione file). */
+/**
+ * Condivide oppure salva, a seconda di cosa sa fare il dispositivo.
+ * @returns {Promise<{mode: 'shared'|'saved'|'downloaded'|'cancelled', where?: string}>}
+ */
 async function shareOrDownload(blob, filename, title) {
+  if (androidHost) {
+    const where = await hostSaveFile(blob, filename, 'save');
+    return { mode: 'saved', where };
+  }
   const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
   if (canShareFiles([file])) {
     try {
       await navigator.share({ files: [file], title });
-      return 'shared';
+      return { mode: 'shared' };
     } catch (err) {
-      if (err?.name === 'AbortError') return 'cancelled';
+      if (err?.name === 'AbortError') return { mode: 'cancelled' };
     }
   }
-  downloadBlob(blob, filename);
-  return 'downloaded';
+  downloadBlobInBrowser(blob, filename);
+  return { mode: 'downloaded' };
 }

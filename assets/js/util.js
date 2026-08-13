@@ -148,3 +148,47 @@ function slugify(str) {
     .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '')
     .toLowerCase().slice(0, 40) || 'scontrino';
 }
+
+/* ── Scadenze per resi, cambi e garanzia ─────────────────────── */
+
+/** Giorni che mancano a una data: 0 = oggi, negativo = già passata. */
+function daysLeft(iso) {
+  if (!iso) return null;
+  return daysBetween(todayISO(), iso);
+}
+
+const DEADLINE_KINDS = {
+  reso:     { label: 'Reso o cambio', short: 'Reso',     emoji: '↩️', icon: 'ret' },
+  garanzia: { label: 'Garanzia',      short: 'Garanzia', emoji: '🛡️', icon: 'shield' },
+};
+
+/** Come mostrare una scadenza: gravità, colore e testo pronto. */
+function deadlineStatus(days) {
+  if (days == null) return null;
+  if (days < 0) {
+    const passati = Math.abs(days);
+    return { level: 'scaduto', tone: 'grey', urgent: false,
+             text: passati === 1 ? 'scaduto ieri' : `scaduto ${passati} giorni fa` };
+  }
+  if (days === 0) return { level: 'oggi', tone: 'red', urgent: true, text: 'scade oggi' };
+  if (days === 1) return { level: 'domani', tone: 'red', urgent: true, text: 'scade domani' };
+  if (days <= 7) return { level: 'settimana', tone: 'amber', urgent: true, text: `fra ${days} giorni` };
+  if (days <= 30) return { level: 'mese', tone: 'green', urgent: false, text: `fra ${days} giorni` };
+  if (days <= 60) return { level: 'oltre', tone: 'plain', urgent: false, text: `fra ${days} giorni` };
+  const mesi = Math.round(days / 30);
+  return { level: 'oltre', tone: 'plain', urgent: false,
+           text: mesi < 12 ? `fra ${mesi} mesi` : `fra ${(days / 365).toFixed(1).replace('.', ',')} anni` };
+}
+
+/** Aggiunge giorni a una data ISO restituendo una data ISO. */
+function shiftDays(iso, days) {
+  const d = parseISO(iso) || new Date();
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function shiftYears(iso, years) {
+  const d = parseISO(iso) || new Date();
+  d.setFullYear(d.getFullYear() + years);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}

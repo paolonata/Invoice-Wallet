@@ -42,7 +42,7 @@ async function init() {
     await loadReceipts();
   } catch (err) {
     console.error(err);
-    toastError('Impossibile aprire l archivio locale. Controlla che il browser non sia in navigazione privata.');
+    toastError(`Impossibile aprire l'archivio locale. Controlla che il browser non sia in navigazione privata.`);
   }
 
   hydrateIcons(document);
@@ -135,7 +135,7 @@ window.addEventListener('popstate', (e) => {
 /* ═══════════════════ Render ═══════════════════ */
 
 function render() {
-  ['home', 'stats', 'settings', 'trash', 'detail'].forEach((v) => {
+  ['home', 'deadlines', 'stats', 'settings', 'trash', 'detail'].forEach((v) => {
     $(`#view-${v}`).hidden = v !== state.view;
   });
 
@@ -145,7 +145,9 @@ function render() {
 
   $$('#tabbar .tab').forEach((t) => t.classList.toggle('is-active', t.dataset.tab === state.view));
 
+  renderDeadlineAlerts();
   if (state.view === 'home') renderHome();
+  if (state.view === 'deadlines') renderDeadlines();
   if (state.view === 'stats') renderStats();
   if (state.view === 'settings') renderSettings();
   if (state.view === 'trash') renderTrash();
@@ -226,6 +228,8 @@ function receiptCard(r, i) {
   const src = thumbURL(r);
   const amount = r.amount != null ? fmtMoney(r.amount, r.currency || cur()) : '';
 
+  const chip = returnChip(r);
+
   if (state.settings.layout === 'list') {
     return `
       <button class="row" data-id="${r.id}" ${delay}>
@@ -233,6 +237,7 @@ function receiptCard(r, i) {
         <span class="row__main">
           <span class="row__title">${esc(r.title || 'Scontrino')}</span>
           <span class="row__sub">${c.emoji} ${esc(c.label)} · ${esc(fmtDate(r.date))}${r.photoIds.length > 1 ? ` · ${r.photoIds.length} foto` : ''}</span>
+          ${chip ? `<span class="pill pill--${chip.tone} pill--xs">↩️ ${esc(chip.text)}</span>` : ''}
         </span>
         ${r.favorite ? `<span class="card__star" data-icon="starOn" style="position:static"></span>` : ''}
         <span class="row__amount">${esc(amount || '—')}</span>
@@ -244,6 +249,7 @@ function receiptCard(r, i) {
       <span class="card__img">
         ${src ? `<img src="${src}" alt="Foto di ${esc(r.title || 'scontrino')}" loading="lazy">` : ''}
         <span class="card__badge">${c.emoji}</span>
+        ${chip ? `<span class="card__deadline pill pill--${chip.tone} pill--xs">↩️ ${esc(chip.text)}</span>` : ''}
         ${r.favorite ? `<span class="card__star" data-icon="starOn"></span>` : ''}
         ${amount ? `<span class="card__amount">${esc(amount)}</span>` : ''}
         ${r.photoIds.length > 1 ? `<span class="card__multi">${r.photoIds.length} 📄</span>` : ''}
@@ -253,6 +259,25 @@ function receiptCard(r, i) {
         <span class="card__date">${esc(fmtDate(r.date, 'long'))}</span>
       </span>
     </button>`;
+}
+
+/** Etichetta con conto alla rovescia, usata nel dettaglio. */
+function deadlineTag(r, kind) {
+  const date = kind === 'reso' ? r.returnUntil : r.warrantyUntil;
+  if (!date) return '';
+  const k = DEADLINE_KINDS[kind];
+  const st = deadlineStatus(daysLeft(date));
+  return `<span class="tag tag--${st.tone}">${k.emoji} ${esc(k.short)} entro il ${esc(fmtDate(date))} · ${esc(st.text)}</span>`;
+}
+
+/** Avviso compatto sulla card quando il tempo per il reso sta finendo. */
+function returnChip(r) {
+  if (!r.returnUntil) return null;
+  const days = daysLeft(r.returnUntil);
+  if (days > 14 || days < -3) return null;
+  const st = deadlineStatus(days);
+  const testo = days < 0 ? 'scaduto' : days === 0 ? 'oggi' : days === 1 ? '1 giorno' : `${days} giorni`;
+  return { tone: st.tone, text: testo };
 }
 
 const _thumbKeys = new Map();
@@ -321,7 +346,7 @@ async function renderDetail() {
       <div class="detail__tags">
         <span class="tag">${c.emoji} ${esc(c.label)}</span>
         <span class="tag">${icon('calendar')} ${esc(fmtDate(r.date, 'long'))}</span>
-        ${r.warrantyUntil ? `<span class="tag">${icon('shield')} Garanzia ${esc(fmtDate(r.warrantyUntil))}</span>` : ''}
+        ${deadlineTag(r, 'reso')}${deadlineTag(r, 'garanzia')}
       </div>
     </div>
     <div class="detail__actions">
@@ -461,6 +486,121 @@ function renderStats() {
   hydrateIcons(body);
 }
 
+/* ── Scadenze (resi, cambi, garanzia) ─────────────────────── */
+
+let deadlineFilter = 'tutte';
+
+/** Una voce per ogni scadenza impostata, ordinata dalla più imminente. */
+function deadlineEntries(kind = 'tutte') {
+  const out = [];
+  for (const r of liveReceipts()) {
+    if (kind !== 'garanzia' && r.returnUntil) {
+      out.push({ receipt: r, kind: 'reso', date: r.returnUntil, days: daysLeft(r.returnUntil) });
+    }
+    if (kind !== 'reso' && r.warrantyUntil) {
+      out.push({ receipt: r, kind: 'garanzia', date: r.warrantyUntil, days: daysLeft(r.warrantyUntil) });
+    }
+  }
+  return out.sort((a, b) => a.days - b.days);
+}
+
+/** Quante scadenze incombono: alimenta il pallino sulla scheda. */
+function urgentCount() {
+  return deadlineEntries().filter((e) => e.days >= 0 && e.days <= 7).length;
+}
+
+const DEADLINE_SECTIONS = [
+  { id: 'scaduti',  title: 'Scaduti di recente', test: (d) => d < 0 && d >= -60 },
+  { id: 'ora',      title: 'Oggi e domani',      test: (d) => d >= 0 && d <= 1 },
+  { id: 'settimana',title: 'Entro una settimana',test: (d) => d > 1 && d <= 7 },
+  { id: 'mese',     title: 'Entro un mese',      test: (d) => d > 7 && d <= 30 },
+  { id: 'dopo',     title: 'Più avanti',         test: (d) => d > 30 },
+];
+
+function deadlineRow(entry) {
+  const r = entry.receipt;
+  const k = DEADLINE_KINDS[entry.kind];
+  const st = deadlineStatus(entry.days);
+  return `
+    <button class="row" data-id="${r.id}">
+      <span class="row__thumb">${r.thumb ? `<img src="${thumbURL(r)}" alt="" loading="lazy">` : ''}</span>
+      <span class="row__main">
+        <span class="row__title">${esc(r.title || 'Scontrino')}</span>
+        <span class="row__sub">${k.emoji} ${esc(k.short)} entro il ${esc(fmtDate(entry.date))}${r.amount != null ? ` · ${esc(fmtMoney(r.amount, r.currency || cur()))}` : ''}</span>
+      </span>
+      <span class="pill pill--${st.tone}">${esc(st.text)}</span>
+    </button>`;
+}
+
+function renderDeadlines() {
+  $$('#deadlines-filter button').forEach((b) => b.classList.toggle('is-active', b.dataset.kind === deadlineFilter));
+
+  const body = $('#deadlines-body');
+  const entries = deadlineEntries(deadlineFilter);
+
+  if (!entries.length) {
+    body.innerHTML = `
+      <div class="empty" style="padding:34px 20px">
+        <div class="empty__art" style="width:120px;height:110px">
+          <svg viewBox="0 0 160 140" fill="none">
+            <circle cx="80" cy="70" r="46" class="e-paper2"/>
+            <path d="M80 42v30l20 12" class="e-line"/>
+          </svg>
+        </div>
+        <h2>Nessuna scadenza impostata</h2>
+        <p>Quando salvi uno scontrino attiva <b>Reso o cambio entro</b>: qui vedrai quanti giorni ti restano per cambiare o restituire.</p>
+      </div>`;
+    return;
+  }
+
+  const urgenti = entries.filter((e) => e.days >= 0 && e.days <= 7).length;
+  const scaduti = entries.filter((e) => e.days < 0).length;
+
+  body.innerHTML = `
+    <div class="panel"><div class="panel__body">
+      <div class="statgrid">
+        <div><b>${urgenti}</b><small>in scadenza entro 7 giorni</small></div>
+        <div><b>${entries.filter((e) => e.days >= 0).length}</b><small>ancora validi</small></div>
+      </div>
+      ${urgenti ? `<div class="note note--warn">${icon('warn')}<div><b>Ultimi giorni</b>${urgenti === 1 ? `C'è uno scontrino` : `Ci sono ${urgenti} scontrini`} con il tempo quasi finito: dopo la data non puoi più fare reso o cambio.</div></div>` : ''}
+      ${!urgenti && !scaduti ? `<div class="note">${icon('check')}<div><b>Tutto tranquillo</b>Nessuna scadenza nei prossimi sette giorni.</div></div>` : ''}
+    </div></div>
+
+    ${DEADLINE_SECTIONS.map((sec) => {
+      const items = entries.filter((e) => sec.test(e.days));
+      if (!items.length) return '';
+      return `
+        <div class="panel__title">${esc(sec.title)} · ${items.length}</div>
+        <div class="list">${items.map(deadlineRow).join('')}</div>`;
+    }).join('')}`;
+
+  hydrateIcons(body);
+  body.onclick = (e) => {
+    const row = e.target.closest('[data-id]');
+    if (row) go('detail', { id: row.dataset.id });
+  };
+}
+
+/** Pallino sulla scheda Scadenze + fascia di avviso in cima alla home. */
+function renderDeadlineAlerts() {
+  const badge = $('#tab-badge');
+  const count = urgentCount();
+  badge.hidden = count === 0;
+  badge.textContent = count > 9 ? '9+' : String(count);
+
+  const bar = $('#alertbar');
+  const imminenti = deadlineEntries().filter((e) => e.days >= 0 && e.days <= 3);
+  if (!imminenti.length) { bar.hidden = true; return; }
+
+  const first = imminenti[0];
+  const st = deadlineStatus(first.days);
+  bar.hidden = false;
+  bar.innerHTML = imminenti.length === 1
+    ? `${icon('clock')}<span><b>${esc(DEADLINE_KINDS[first.kind].short)} ${esc(st.text)}</b>${esc(first.receipt.title || 'Scontrino')}</span>${icon('chevron')}`
+    : `${icon('clock')}<span><b>${imminenti.length} scadenze imminenti</b>Ultimi giorni per resi e cambi</span>${icon('chevron')}`;
+  hydrateIcons(bar);
+}
+
 /* ── Impostazioni ─────────────────────────────────────────── */
 
 async function renderSettings() {
@@ -546,7 +686,9 @@ async function renderSettings() {
       <div><b>Privacy totale</b>Foto e importi restano dentro questo dispositivo: nessun account, nessun caricamento su internet. Per questo il backup è importante.</div>
     </div>
 
-    <p class="centered" style="padding:8px 0 0;font-size:13px">Invoice Wallet v${APP_VERSION}</p>`;
+    <p class="centered" style="padding:8px 0 0;font-size:13px">
+      Invoice Wallet v${APP_VERSION}${isAndroidApp ? ` · app Android ${esc(androidVersion())}` : ''}
+    </p>`;
 
   hydrateIcons(body);
 
@@ -710,7 +852,7 @@ async function quickSaveMany(photos) {
     const receipt = {
       id, title: '', amount: null, currency: cur(), date: todayISO(),
       category: 'altro', note: '', photoIds: [p.id], thumb: p.thumb,
-      favorite: false, warrantyUntil: null, createdAt: now, updatedAt: now,
+      favorite: false, warrantyUntil: null, returnUntil: null, createdAt: now, updatedAt: now,
     };
     await DB.saveReceiptWithPhotos(receipt, [{ id: p.id, receiptId: id, blob: p.blob, width: p.width, height: p.height, createdAt: now }]);
   }
@@ -737,6 +879,7 @@ async function openEditor({ receipt = null, photos = null }) {
     note: receipt?.note || '',
     favorite: !!receipt?.favorite,
     warrantyUntil: receipt?.warrantyUntil || null,
+    returnUntil: receipt?.returnUntil || null,
   };
 
   const body = `
@@ -783,12 +926,31 @@ async function openEditor({ receipt = null, photos = null }) {
       <div class="switch ${draft.favorite ? 'is-on' : ''}" id="f-fav" role="switch" aria-checked="${draft.favorite}"></div>
     </div>
 
+    <div class="switchrow" id="f-ret-row">
+      <div class="switchrow__text"><b>↩️ Reso o cambio entro</b><small>Ti avviso nella scheda Scadenze</small></div>
+      <div class="switch ${draft.returnUntil ? 'is-on' : ''}" id="f-ret" role="switch" aria-checked="${!!draft.returnUntil}"></div>
+    </div>
+    <div class="field" id="f-ret-wrap" ${draft.returnUntil ? '' : 'hidden'}>
+      <div class="quickdates" id="f-ret-quick">
+        <button type="button" data-days="8">8 giorni</button>
+        <button type="button" data-days="14">14 giorni</button>
+        <button type="button" data-days="30">30 giorni</button>
+        <button type="button" data-days="60">60 giorni</button>
+      </div>
+      <input class="input" type="date" id="f-return" value="${esc(draft.returnUntil || '')}">
+    </div>
+
     <div class="switchrow" id="f-war-row">
-      <div class="switchrow__text"><b>🛡️ Garanzia o reso</b><small>Segna fino a quando vale</small></div>
+      <div class="switchrow__text"><b>🛡️ Garanzia fino al</b><small>Per legge di solito 2 anni</small></div>
       <div class="switch ${draft.warrantyUntil ? 'is-on' : ''}" id="f-war" role="switch" aria-checked="${!!draft.warrantyUntil}"></div>
     </div>
     <div class="field" id="f-war-wrap" ${draft.warrantyUntil ? '' : 'hidden'}>
-      <label>Valida fino al</label>
+      <div class="quickdates" id="f-war-quick">
+        <button type="button" data-years="1">1 anno</button>
+        <button type="button" data-years="2">2 anni</button>
+        <button type="button" data-years="3">3 anni</button>
+        <button type="button" data-years="5">5 anni</button>
+      </div>
       <input class="input" type="date" id="f-warranty" value="${esc(draft.warrantyUntil || '')}">
     </div>`;
 
@@ -844,19 +1006,39 @@ async function openEditor({ receipt = null, photos = null }) {
         favSw.setAttribute('aria-checked', draft.favorite);
       });
 
-      const warSw = $('#f-war', sheet);
-      const warWrap = $('#f-war-wrap', sheet);
-      $('#f-war-row', sheet).addEventListener('click', () => {
-        const on = !warSw.classList.contains('is-on');
-        warSw.classList.toggle('is-on', on);
-        warSw.setAttribute('aria-checked', on);
-        warWrap.hidden = !on;
-        if (on && !$('#f-warranty', sheet).value) {
-          const d = new Date();
-          d.setFullYear(d.getFullYear() + 2);
-          $('#f-warranty', sheet).value = d.toISOString().slice(0, 10);
-        }
-      });
+      // Scadenze: interruttore + scorciatoie calcolate dalla data dello scontrino.
+      const setupDeadline = (rowId, switchId, wrapId, quickId, inputId, fallback) => {
+        const sw = $(switchId, sheet);
+        const wrap = $(wrapId, sheet);
+        const input = $(inputId, sheet);
+
+        $(rowId, sheet).addEventListener('click', () => {
+          const on = !sw.classList.contains('is-on');
+          sw.classList.toggle('is-on', on);
+          sw.setAttribute('aria-checked', on);
+          wrap.hidden = !on;
+          if (on && !input.value) input.value = fallback();
+          haptic(8);
+        });
+
+        $(quickId, sheet).addEventListener('click', (e) => {
+          const btn = e.target.closest('[data-days], [data-years]');
+          if (!btn) return;
+          const from = $('#f-date', sheet).value || todayISO();
+          input.value = btn.dataset.days
+            ? shiftDays(from, Number(btn.dataset.days))
+            : shiftYears(from, Number(btn.dataset.years));
+          $$(`${quickId} button`, sheet).forEach((b) => b.classList.toggle('is-active', b === btn));
+          haptic(8);
+        });
+
+        return sw;
+      };
+
+      const retSw = setupDeadline('#f-ret-row', '#f-ret', '#f-ret-wrap', '#f-ret-quick', '#f-return',
+        () => shiftDays($('#f-date', sheet).value || todayISO(), 30));
+      const warSw = setupDeadline('#f-war-row', '#f-war', '#f-war-wrap', '#f-war-quick', '#f-warranty',
+        () => shiftYears($('#f-date', sheet).value || todayISO(), 2));
 
       sheet.querySelector('[data-cancel]').addEventListener('click', () => close());
 
@@ -875,6 +1057,7 @@ async function openEditor({ receipt = null, photos = null }) {
               note: $('#f-note', sheet).value.trim(),
               favorite: draft.favorite,
               warrantyUntil: warSw.classList.contains('is-on') ? ($('#f-warranty', sheet).value || null) : null,
+              returnUntil: retSw.classList.contains('is-on') ? ($('#f-return', sheet).value || null) : null,
             },
           });
           close();
@@ -985,6 +1168,15 @@ async function shareReceipt(r, photos) {
   const text = [r.title, r.amount != null ? fmtMoney(r.amount, r.currency || cur()) : '', fmtDate(r.date)]
     .filter(Boolean).join(' · ');
 
+  if (isAndroidApp && files.length === 1) {
+    try {
+      await hostSaveFile(files[0], files[0].name, 'share');
+      return;
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   if (canShareFiles(files)) {
     try {
       await navigator.share({ files, title: r.title || 'Scontrino', text });
@@ -996,24 +1188,33 @@ async function shareReceipt(r, photos) {
   downloadPhotos(r, photos);
 }
 
-function downloadPhotos(r, photos) {
-  photos.forEach((p, i) => {
-    downloadBlob(p.blob, `${slugify(r.title || 'scontrino')}-${r.date}${photos.length > 1 ? `-${i + 1}` : ''}.jpg`);
-  });
-  toast(photos.length > 1 ? `${photos.length} foto scaricate` : 'Foto scaricata', { icon: 'download' });
+async function downloadPhotos(r, photos) {
+  let where = '';
+  try {
+    for (let i = 0; i < photos.length; i++) {
+      const name = `${slugify(r.title || 'scontrino')}-${r.date}${photos.length > 1 ? `-${i + 1}` : ''}.jpg`;
+      where = await downloadBlob(photos[i].blob, name);
+    }
+  } catch (err) {
+    console.error(err);
+    toastError('Non sono riuscito a salvare la foto.');
+    return;
+  }
+  const quante = photos.length > 1 ? `${photos.length} foto salvate` : 'Foto salvata';
+  toast(where ? `${quante} in ${where.replace(/\/[^/]*$/, '')}` : quante, { icon: 'download' });
 }
 
 /* ═══════════════════ Backup ═══════════════════ */
 
 async function exportBackup() {
   const receipts = state.receipts.filter((r) => !r.deletedAt);
-  if (!receipts.length) { toast('Non c è ancora niente da esportare', { icon: 'info' }); return; }
+  if (!receipts.length) { toast(`Non c'è ancora niente da esportare`, { icon: 'info' }); return; }
 
   const closeToast = toast('Preparo il backup…', { icon: 'download', duration: 120000 });
   try {
     const zip = new ZipBuilder();
     const meta = [];
-    const csv = [['Data', 'Descrizione', 'Importo', 'Valuta', 'Categoria', 'Nota', 'File']];
+    const csv = [['Data', 'Descrizione', 'Importo', 'Valuta', 'Categoria', 'Nota', 'Reso entro', 'Garanzia fino al', 'File']];
 
     for (const r of receipts) {
       const photos = await DB.getPhotos(r.photoIds);
@@ -1026,10 +1227,14 @@ async function exportBackup() {
       meta.push({
         id: r.id, title: r.title, amount: r.amount, currency: r.currency,
         date: r.date, category: r.category, note: r.note, favorite: !!r.favorite,
-        warrantyUntil: r.warrantyUntil || null, createdAt: r.createdAt, updatedAt: r.updatedAt,
+        warrantyUntil: r.warrantyUntil || null, returnUntil: r.returnUntil || null,
+        createdAt: r.createdAt, updatedAt: r.updatedAt,
         photos: names,
       });
-      csv.push([r.date, r.title, r.amount != null ? r.amount.toFixed(2).replace('.', ',') : '', r.currency || cur(), catOf(r.category).label, r.note, names.join(' | ')]);
+      csv.push([r.date, r.title, r.amount != null ? r.amount.toFixed(2).replace('.', ',') : '',
+        r.currency || cur(), catOf(r.category).label, r.note,
+        r.returnUntil ? fmtDate(r.returnUntil) : '', r.warrantyUntil ? fmtDate(r.warrantyUntil) : '',
+        names.join(' | ')]);
     }
 
     await zip.add('invoice-wallet.json', JSON.stringify({
@@ -1041,15 +1246,17 @@ async function exportBackup() {
       'Backup di Invoice Wallet.\r\n\r\n' +
       'Le foto sono nella cartella "foto" e si aprono con qualsiasi programma.\r\n' +
       'Il file scontrini.csv si apre con Excel o Fogli Google.\r\n' +
-      'Per rimettere tutto nell app: Impostazioni → Ripristina da backup, e scegli questo .zip.\r\n');
+      'Per rimettere tutto nell\'app: Impostazioni → Ripristina da backup, e scegli questo .zip.\r\n');
 
     const blob = zip.build();
     closeToast();
     const name = `invoice-wallet-backup-${todayISO()}.zip`;
-    await shareOrDownload(blob, name, 'Backup Invoice Wallet');
+    const result = await shareOrDownload(blob, name, 'Backup Invoice Wallet');
 
     state.lastBackupAt = await DB.setMeta('lastBackupAt', Date.now());
-    toast(`Backup pronto · ${fmtBytes(blob.size)}`, { icon: 'check' });
+    toast(result.where
+      ? `Backup salvato in ${result.where} · ${fmtBytes(blob.size)}`
+      : `Backup pronto · ${fmtBytes(blob.size)}`, { icon: 'check', duration: 5000 });
     if (state.view === 'settings') renderSettings();
   } catch (err) {
     console.error(err);
@@ -1091,7 +1298,7 @@ async function importBackup(file) {
         id: r.id,
         title: r.title || '', amount: r.amount ?? null, currency: r.currency || cur(),
         date: r.date || todayISO(), category: r.category || 'altro', note: r.note || '',
-        favorite: !!r.favorite, warrantyUntil: r.warrantyUntil || null,
+        favorite: !!r.favorite, warrantyUntil: r.warrantyUntil || null, returnUntil: r.returnUntil || null,
         photoIds: photoRecords.map((p) => p.id),
         thumb: await makeThumb(photoRecords[0].blob),
         createdAt: r.createdAt || now, updatedAt: now,
@@ -1113,7 +1320,7 @@ async function enablePersistence() {
   const ok = await requestPersistence();
   toast(ok
     ? 'Archiviazione protetta attiva'
-    : 'Il browser ha rifiutato: installa l app per ottenere la protezione', { icon: ok ? 'shield' : 'info', duration: 4500 });
+    : 'Il browser ha rifiutato: installa l\'app per ottenere la protezione', { icon: ok ? 'shield' : 'info', duration: 4500 });
   renderSettings();
 }
 
@@ -1232,6 +1439,15 @@ function wireGlobalEvents() {
       label: s.label,
       onClick: async () => { await saveSettings({ sort: id }); renderHome(); },
     })));
+  });
+
+  $('#alertbar').addEventListener('click', () => go('deadlines'));
+
+  $('#deadlines-filter').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-kind]');
+    if (!btn) return;
+    deadlineFilter = btn.dataset.kind;
+    renderDeadlines();
   });
 
   $('#stats-range').addEventListener('click', (e) => {

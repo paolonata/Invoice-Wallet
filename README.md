@@ -18,11 +18,42 @@ Nessun riconoscimento del testo — l'app salva la foto e i quattro dati che ser
 | 🗂️ **Ordine automatico** | Raggruppati per mese, con il totale speso sempre in cima |
 | 🔎 **Ritrova tutto** | Ricerca per negozio, nota, importo o data + filtri per categoria e preferiti |
 | 📊 **Statistiche** | Quanto spendi al mese, dove vanno i soldi, lo scontrino più caro |
+| ⏳ **Scadenze resi e cambi** | Una scheda dedicata ti dice quanti giorni restano per restituire o cambiare |
 | 🛡️ **Cestino di sicurezza** | Quello che elimini resta recuperabile per 30 giorni |
 | 💾 **Backup completo** | Un file `.zip` con tutte le foto + un `.csv` apribile con Excel |
 | 📴 **Funziona offline** | Installala sul telefono: si apre come una vera app, anche in aereo |
 | 🌗 **Tema chiaro e scuro** | Segue il telefono, oppure lo scegli tu |
 | 🔒 **Privacy totale** | Le foto non lasciano mai il dispositivo |
+
+## L'app Android (APK)
+
+Oltre alla versione web c'è un'app vera e propria, che impacchetta tutto dentro l'APK
+(nessuna connessione richiesta, nemmeno per il primo avvio).
+
+1. Dal telefono apri la pagina **[Releases](../../releases/latest)** del repository.
+2. Scarica il file `invoice-wallet-vX.Y.Z.N.apk` e toccalo per installarlo.
+   La prima volta Android chiede di autorizzare l'installazione da questa fonte.
+3. **Aggiornamenti**: ogni push costruisce un APK nuovo. Lo scarichi, lo tocchi e si
+   installa *sopra* quello vecchio — niente disinstallazione, gli scontrini restano.
+   L'app controlla da sola due volte al giorno se c'è una versione più recente.
+
+Funziona così perché ogni build è firmata con la stessa chiave
+(`android/keystore/invoice-wallet.jks`) e ha un `versionCode` sempre più alto:
+sono le due condizioni che Android richiede per un aggiornamento in place.
+
+> La chiave di firma è nel repository per rendere le build ripetibili senza
+> configurazione. Se un domani rendi pubblico il repo, spostala nei GitHub Secrets:
+> il build accetta già `IW_STORE_FILE`, `IW_STORE_PASSWORD`, `IW_KEY_ALIAS`,
+> `IW_KEY_PASSWORD` come variabili d'ambiente. **Non perdere quel file**: senza,
+> le versioni future non si installerebbero più sopra quelle vecchie.
+
+### Scadenze per resi e cambi
+
+Quando salvi uno scontrino puoi attivare **Reso o cambio entro** (scorciatoie da 8,
+14, 30 o 60 giorni) e **Garanzia** (1, 2, 3 o 5 anni). La scheda **Scadenze** raccoglie
+tutto in ordine di urgenza — scaduti, oggi e domani, entro una settimana, entro un mese —
+con un pallino rosso sulla scheda e una fascia in cima alla home quando mancano
+tre giorni o meno. Nessuna notifica di sistema: gli avvisi vivono dentro l'app.
 
 ## Come si usa
 
@@ -67,6 +98,10 @@ assets/js/
   ui.js                  toast, bottom sheet, conferme, zoom foto
   app.js                 stato, schermate, azioni
 tools/gen-icons.js       rigenera le icone PNG (node tools/gen-icons.js icons)
+android/                 contenitore Android: WebView + ponte per salvare i file
+  app/src/main/java/…    MainActivity, FileBridge (download), UpdateChecker
+  keystore/              chiave di firma, sempre la stessa
+.github/workflows/       pages.yml (sito) e android.yml (APK + Release)
 ```
 
 **Come sono conservati i dati.** Ogni scontrino è un record in IndexedDB con la miniatura;

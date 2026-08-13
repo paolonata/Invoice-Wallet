@@ -352,14 +352,17 @@ svg { width: 100%; height: 100%; display: block; }
   border-top: 1px solid var(--line-soft);
 }
 @supports not (backdrop-filter: blur(1px)) { .tabbar { background: var(--bg-elev); } }
-.tabbar__slot { width: 76px; flex: none; }
+.tabbar__slot { width: 70px; flex: none; }
 .tabbar__spacer { display: none; }
 .tab {
   flex: 1; display: grid; place-items: center; gap: 3px; color: var(--ink-3);
   transition: color .18s var(--ease);
 }
 .tab [data-icon] { width: 23px; height: 23px; transition: transform .2s var(--ease); }
-.tab em { font-style: normal; font-size: 10.5px; font-weight: 650; letter-spacing: .01em; }
+.tab em {
+  font-style: normal; font-size: 9.5px; font-weight: 650; letter-spacing: 0;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .tab.is-active { color: var(--accent); }
 .tab.is-active [data-icon] { transform: translateY(-1px) scale(1.06); }
 
@@ -677,3 +680,75 @@ svg { width: 100%; height: 100%; display: block; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* ══════════════ Scadenze: resi, cambi e garanzia ══════════════ */
+
+/* fascia di avviso in cima alla home */
+.alertbar {
+  display: flex; align-items: center; gap: 12px; width: calc(100% - var(--pad) * 2);
+  margin: 12px var(--pad) 0; padding: 13px 15px;
+  border-radius: var(--r-md); text-align: left;
+  background: var(--danger-soft); color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 32%, transparent);
+  animation: dropIn .3s var(--ease);
+  transition: transform .16s var(--ease);
+}
+.alertbar:active { transform: scale(.985); }
+.alertbar > span { flex: 1; min-width: 0; font-size: 13px; line-height: 1.45; }
+.alertbar b { display: block; font-size: 14.5px; font-weight: 700; }
+.alertbar [data-icon] { flex: none; }
+.alertbar [data-icon]:last-child { width: 18px; height: 18px; opacity: .6; }
+
+/* pallino sulla scheda Scadenze */
+.tab { position: relative; }
+.tabbadge {
+  position: absolute; top: 4px; left: 50%; margin-left: 4px;
+  min-width: 17px; height: 17px; padding: 0 5px; border-radius: 99px;
+  background: var(--danger); color: #fff;
+  font-size: 10.5px; font-weight: 700; line-height: 17px; text-align: center;
+  box-shadow: 0 0 0 2px var(--bg-elev);
+  animation: pop .3s var(--ease);
+}
+
+/* pastiglie con il conto alla rovescia */
+.pill {
+  display: inline-flex; align-items: center; gap: 5px; flex: none;
+  padding: 5px 10px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 700; white-space: nowrap;
+}
+.pill--xs { padding: 3px 7px; font-size: 11px; }
+.pill--red   { background: var(--danger-soft); color: var(--danger); }
+.pill--amber { background: color-mix(in srgb, var(--gold) 20%, transparent); color: var(--gold); }
+.pill--green { background: var(--accent-soft); color: var(--accent-deep); }
+.pill--grey  { background: var(--surface-3); color: var(--ink-3); }
+.pill--plain { background: var(--surface-3); color: var(--ink-2); }
+
+/* sulla foto serve un fondo pieno, altrimenti non si legge */
+.card__deadline {
+  position: absolute; left: 10px; bottom: 34px; z-index: 2;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
+}
+.card__deadline.pill--red   { background: var(--danger); color: #fff; }
+.card__deadline.pill--amber { background: var(--gold); color: #1c1300; }
+.card__deadline.pill--green { background: var(--accent); color: var(--accent-ink); }
+.card__deadline.pill--grey,
+.card__deadline.pill--plain { background: rgba(0,0,0,.62); color: #fff; }
+.row .pill--xs { align-self: flex-start; margin-top: 3px; }
+
+/* etichette colorate nel dettaglio */
+.tag--red   { background: var(--danger-soft); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 30%, transparent); }
+.tag--amber { background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold); border-color: color-mix(in srgb, var(--gold) 34%, transparent); }
+.tag--green { background: var(--accent-soft); color: var(--accent-deep); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+.tag--grey  { background: var(--surface-3); color: var(--ink-3); }
+
+/* scorciatoie per impostare la data */
+.quickdates { display: flex; gap: 7px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.quickdates::-webkit-scrollbar { display: none; }
+.quickdates button {
+  flex: none; padding: 8px 13px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--line);
+  font-size: 13px; font-weight: 600; color: var(--ink-2);
+  transition: all .16s var(--ease);
+}
+.quickdates button:active { transform: scale(.95); }
+.quickdates button.is-active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-deep); }

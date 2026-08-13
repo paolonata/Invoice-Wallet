@@ -1,0 +1,98 @@
+plugins {
+  id 'com.android.application'
+}
+
+/*
+ * Numero di build: cresce a ogni esecuzione del workflow.
+ * Un versionCode più alto + la stessa firma = l'aggiornamento si installa
+ * sopra quello vecchio, senza disinstallare e senza perdere gli scontrini.
+ */
+def buildNumber = (System.getenv('IW_BUILD_NUMBER') ?: '1') as int
+def baseVersion = file("${rootDir}/../VERSION").exists()
+    ? file("${rootDir}/../VERSION").text.trim()
+    : '1.0.0'
+def releaseTag = System.getenv('IW_RELEASE_TAG') ?: 'dev'
+
+android {
+  namespace 'com.invoicewallet.app'
+  compileSdk 35
+
+  defaultConfig {
+    applicationId 'com.invoicewallet.app'
+    minSdk 29
+    targetSdk 35
+    versionCode buildNumber
+    versionName "${baseVersion} (build ${buildNumber})"
+    resourceConfigurations += ['it', 'en']
+    buildConfigField 'String', 'RELEASE_TAG', "\"${releaseTag}\""
+    buildConfigField 'String', 'UPDATE_REPO', "\"${System.getenv('IW_REPO') ?: 'paolonata/Invoice-Wallet'}\""
+  }
+
+  signingConfigs {
+    release {
+      // Di default la chiave del repository; le variabili d'ambiente permettono
+      // di spostarla nei GitHub Secrets senza toccare il codice.
+      storeFile file(System.getenv('IW_STORE_FILE') ?: "${rootDir}/${IW_STORE_FILE}")
+      storePassword System.getenv('IW_STORE_PASSWORD') ?: IW_STORE_PASSWORD
+      keyAlias System.getenv('IW_KEY_ALIAS') ?: IW_KEY_ALIAS
+      keyPassword System.getenv('IW_KEY_PASSWORD') ?: IW_KEY_PASSWORD
+      enableV1Signing true
+      enableV2Signing true
+      enableV3Signing true
+    }
+  }
+
+  buildTypes {
+    release {
+      signingConfig signingConfigs.release
+      minifyEnabled true
+      shrinkResources true
+      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+    }
+    debug {
+      signingConfig signingConfigs.release   // stessa firma anche in debug
+    }
+  }
+
+  buildFeatures {
+    buildConfig true
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+
+  sourceSets {
+    main {
+      assets.srcDirs += ["${layout.buildDirectory.get().asFile}/generatedAssets"]
+    }
+  }
+}
+
+/*
+ * L'app web vive nella radice del repository: qui viene copiata dentro l'APK,
+ * così il telefono non ha bisogno di rete né di un server.
+ */
+tasks.register('syncWebApp', Copy) {
+  description = 'Copia la PWA dentro gli assets dell\'app Android'
+  from("${rootDir}/..") {
+    include 'index.html'
+    include 'manifest.webmanifest'
+    include 'sw.js'
+    include 'assets/**'
+    include 'icons/**'
+  }
+  into layout.buildDirectory.dir('generatedAssets')
+}
+
+tasks.configureEach { task ->
+  if (task.name == 'preBuild') task.dependsOn('syncWebApp')
+  if (task.name.startsWith('merge') && task.name.endsWith('Assets')) task.dependsOn('syncWebApp')
+}
+
+dependencies {
+  implementation 'androidx.appcompat:appcompat:1.7.0'
+  implementation 'androidx.webkit:webkit:1.12.1'
+  implementation 'androidx.core:core:1.13.1'
+}

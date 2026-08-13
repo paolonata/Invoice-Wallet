@@ -161,7 +161,7 @@ async function readZip(blob) {
 
     if (method === 8) {
       if (typeof DecompressionStream !== 'function') {
-        throw new Error('Questo browser non sa leggere archivi compressi: usa un backup creato dall app.');
+        throw new Error('Questo browser non sa leggere archivi compressi: usa un backup creato dall\'app.');
       }
       part = await new Response(part.stream().pipeThrough(new DecompressionStream('deflate-raw'))).blob();
     } else if (method !== 0) {
