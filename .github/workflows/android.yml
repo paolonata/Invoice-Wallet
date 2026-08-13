@@ -70,6 +70,29 @@ jobs:
           path: ${{ steps.apk.outputs.path }}
           retention-days: 90
 
+      - name: Prepara le note di rilascio
+        run: |
+          {
+            echo "### Come si installa"
+            echo ""
+            echo "1. Apri questa pagina **dal telefono** e scarica il file \`.apk\`."
+            echo "2. Tocca il file scaricato e conferma l'installazione."
+            echo "3. La prima volta Android chiede di autorizzare l'installazione da questa fonte:"
+            echo "   e' normale per le app che non passano dal Play Store."
+            echo ""
+            echo "### Aggiornamenti"
+            echo ""
+            echo "Scarica e tocca l'APK nuovo: si installa **sopra** quello vecchio."
+            echo "Non serve disinstallare e **gli scontrini restano tutti al loro posto**,"
+            echo "perche' ogni build e' firmata con la stessa chiave e ha un numero piu' alto."
+            echo "L'app controlla da sola se c'e' una versione nuova e te lo dice all'avvio."
+            echo ""
+            echo "### Privacy"
+            echo ""
+            echo "Foto e importi restano dentro il telefono. L'unica connessione che l'app"
+            echo "apre e' il controllo aggiornamenti verso GitHub."
+          } > release-notes.md
+
       - name: Pubblica la Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -78,23 +101,4 @@ jobs:
             --title "Invoice Wallet ${{ steps.ver.outputs.base }} (build ${{ github.run_number }})" \
             --target "${{ github.sha }}" \
             --latest \
-            --notes "$(cat <<'NOTE'
-### Come si installa
-
-1. Apri questa pagina **dal telefono** e scarica il file `.apk`.
-2. Tocca il file scaricato e conferma l'installazione.
-3. La prima volta Android chiede di autorizzare l'installazione da questa fonte: è normale per le app non pubblicate sul Play Store.
-
-### Aggiornamenti
-
-Basta scaricare e toccare l'APK nuovo: si installa **sopra** quello vecchio.
-Non serve disinstallare e **gli scontrini restano tutti al loro posto**, perché
-ogni build è firmata con la stessa chiave. L'app controlla da sola se c'è una
-versione nuova e te lo dice all'avvio.
-
-### Privacy
-
-Foto e importi restano dentro il telefono. L'unica connessione che l'app apre è
-il controllo aggiornamenti verso GitHub.
-NOTE
-)"
+            --notes-file release-notes.md
