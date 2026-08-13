@@ -1,0 +1,93 @@
+# Invoice Wallet 🧾
+
+App per **fotografare gli scontrini e non perderli mai più**.
+Scatti la foto, la ritrovi per sempre: niente account, niente abbonamenti, niente server.
+Nessun riconoscimento del testo — l'app salva la foto e i quattro dati che servono davvero.
+
+<p align="center">
+  <img src="icons/icon-192.png" width="96" alt="Icona Invoice Wallet">
+</p>
+
+---
+
+## Cosa sa fare
+
+| | |
+|---|---|
+| 📸 **Scatta e salva** | Foto dalla fotocamera o dalla galleria, anche più pagine per lo stesso scontrino |
+| 🗂️ **Ordine automatico** | Raggruppati per mese, con il totale speso sempre in cima |
+| 🔎 **Ritrova tutto** | Ricerca per negozio, nota, importo o data + filtri per categoria e preferiti |
+| 📊 **Statistiche** | Quanto spendi al mese, dove vanno i soldi, lo scontrino più caro |
+| 🛡️ **Cestino di sicurezza** | Quello che elimini resta recuperabile per 30 giorni |
+| 💾 **Backup completo** | Un file `.zip` con tutte le foto + un `.csv` apribile con Excel |
+| 📴 **Funziona offline** | Installala sul telefono: si apre come una vera app, anche in aereo |
+| 🌗 **Tema chiaro e scuro** | Segue il telefono, oppure lo scegli tu |
+| 🔒 **Privacy totale** | Le foto non lasciano mai il dispositivo |
+
+## Come si usa
+
+1. Apri l'app nel browser del telefono.
+2. **Installala**: su Android il browser propone «Aggiungi a schermata Home»; su iPhone tocca *Condividi → Aggiungi a Home*.
+3. Tocca **➕**, scatta la foto dello scontrino, scrivi importo e negozio (o lascia vuoto), **Salva**.
+4. Ogni tanto: *Impostazioni → Esporta backup*, e salva lo `.zip` dove vuoi.
+
+> **Il backup è l'unica vera assicurazione.** I dati stanno solo sul dispositivo: se perdi
+> il telefono o svuoti i dati del browser, senza backup non si recuperano. Per ridurre il rischio,
+> in *Impostazioni* attiva **Archiviazione protetta**: il browser si impegna a non liberare
+> quello spazio da solo.
+
+## Dove gira
+
+Serve solo un server statico (o l'apertura da un dominio HTTPS). Per provarla in locale:
+
+```bash
+python3 -m http.server 8080
+# poi apri http://localhost:8080
+```
+
+Per usarla dal telefono deve stare su HTTPS: `GitHub Pages`, Netlify, Vercel, qualunque hosting statico.
+Nel repo c'è già un workflow che pubblica su GitHub Pages a ogni push su `main`
+(basta attivare *Settings → Pages → Source: GitHub Actions*).
+
+## Com'è fatta
+
+Nessun framework, nessuna dipendenza, nessun passaggio di build: HTML, CSS e JavaScript e basta.
+
+```
+index.html               struttura delle schermate
+manifest.webmanifest     dati per l'installazione come app
+sw.js                    service worker: funziona offline
+assets/css/styles.css    tutto lo stile (temi chiaro/scuro compresi)
+assets/js/
+  icons.js               icone SVG inline
+  util.js                formattazione euro/date, categorie
+  db.js                  archivio IndexedDB (scontrini, foto, impostazioni)
+  media.js               ridimensiona e comprime le foto, miniature
+  zip.js                 lettura e scrittura ZIP per i backup
+  ui.js                  toast, bottom sheet, conferme, zoom foto
+  app.js                 stato, schermate, azioni
+tools/gen-icons.js       rigenera le icone PNG (node tools/gen-icons.js icons)
+```
+
+**Come sono conservati i dati.** Ogni scontrino è un record in IndexedDB con la miniatura;
+le foto a piena risoluzione stanno in un archivio separato, così la lista scorre veloce
+anche con migliaia di scontrini. Le immagini vengono ridimensionate (lato lungo max 1800 px
+di default) e salvate in JPEG: uno scontrino occupa circa 150–250 KB invece di 3–5 MB.
+
+## Il file di backup
+
+Lo `.zip` esportato è pensato per essere utile anche fuori dall'app:
+
+```
+foto/2026-08-13_esselunga_a1b2c3.jpg    le immagini, con nomi leggibili
+scontrini.csv                            elenco apribile con Excel o Fogli Google
+invoice-wallet.json                      dati completi, serve per il ripristino
+LEGGIMI.txt                              istruzioni per il te del futuro
+```
+
+Il ripristino aggiunge solo gli scontrini mancanti: puoi reimportare lo stesso backup
+mille volte senza creare doppioni.
+
+## Licenza
+
+MIT — fanne quello che vuoi.

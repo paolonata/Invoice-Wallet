@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5" />
+<title>Invoice Wallet — i tuoi scontrini al sicuro</title>
+<meta name="description" content="Fotografa i tuoi scontrini e conservali per sempre. Funziona offline, i dati restano sul tuo telefono." />
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#f6f5f3" media="(prefers-color-scheme: light)" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Invoice Wallet" />
+<meta name="mobile-web-app-capable" content="yes" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body data-theme="auto">
+
+<!-- ══════════════ SPLASH ══════════════ -->
+<div id="boot" class="boot">
+  <div class="boot__mark" aria-hidden="true">
+    <svg viewBox="0 0 48 48" fill="none"><path d="M12 4h24a2 2 0 0 1 2 2v38l-5-3-5 3-5-3-5 3-5-3-5 3V6a2 2 0 0 1 2-2Z" fill="currentColor" opacity=".18"/><path d="M12 4h24a2 2 0 0 1 2 2v38l-5-3-5 3-5-3-5 3-5-3-5 3V6a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M17 15h14M17 22h14M17 29h8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+  </div>
+  <div class="boot__name">Invoice Wallet</div>
+</div>
+
+<!-- ══════════════ APP ══════════════ -->
+<div id="app" class="app" hidden>
+
+  <!-- ─────── HOME ─────── -->
+  <main id="view-home" class="view" data-view="home">
+    <header class="topbar">
+      <div class="topbar__row">
+        <div class="brand">
+          <span class="brand__mark" aria-hidden="true"></span>
+          <span class="brand__text">
+            <strong>Invoice Wallet</strong>
+            <small id="brand-sub">i tuoi scontrini al sicuro</small>
+          </span>
+        </div>
+        <button class="iconbtn" id="btn-search-toggle" aria-label="Cerca" data-icon="search"></button>
+      </div>
+
+      <div class="searchbar" id="searchbar" hidden>
+        <span class="searchbar__icon" data-icon="search"></span>
+        <input type="search" id="search-input" placeholder="Cerca esercente, nota, importo…" autocomplete="off" enterkeyhint="search" />
+        <button class="searchbar__clear" id="search-clear" aria-label="Pulisci" data-icon="close"></button>
+      </div>
+
+      <div class="months" id="months" role="tablist" aria-label="Periodo"></div>
+    </header>
+
+    <section class="summary" id="summary">
+      <div class="summary__glow" aria-hidden="true"></div>
+      <div class="summary__label" id="summary-label">Totale</div>
+      <div class="summary__amount" id="summary-amount">—</div>
+      <div class="summary__meta">
+        <span id="summary-count">0 scontrini</span>
+        <span class="dot" aria-hidden="true"></span>
+        <span id="summary-avg">media —</span>
+      </div>
+    </section>
+
+    <div class="toolbar">
+      <div class="chips" id="category-chips"></div>
+      <div class="toolbar__actions">
+        <button class="iconbtn iconbtn--sm" id="btn-sort" aria-label="Ordina" data-icon="sort"></button>
+        <button class="iconbtn iconbtn--sm" id="btn-layout" aria-label="Cambia vista" data-icon="grid"></button>
+      </div>
+    </div>
+
+    <div class="results" id="results-bar" hidden></div>
+
+    <section class="feed" id="feed" aria-live="polite"></section>
+
+    <div class="empty" id="empty" hidden>
+      <div class="empty__art" aria-hidden="true">
+        <svg viewBox="0 0 160 140" fill="none">
+          <rect x="30" y="18" width="70" height="104" rx="6" class="e-paper" transform="rotate(-7 65 70)"/>
+          <rect x="58" y="14" width="70" height="104" rx="6" class="e-paper2"/>
+          <path d="M70 40h46M70 56h46M70 72h28" class="e-line"/>
+          <circle cx="118" cy="98" r="20" class="e-badge"/>
+          <path d="M110 98h16M118 90v16" class="e-plus"/>
+        </svg>
+      </div>
+      <h2 id="empty-title">Nessuno scontrino, per ora</h2>
+      <p id="empty-text">Scatta la prima foto: resterà salvata sul tuo telefono, anche offline.</p>
+      <button class="btn btn--primary" id="empty-cta"><span data-icon="camera"></span> Fotografa uno scontrino</button>
+    </div>
+  </main>
+
+  <!-- ─────── STATISTICHE ─────── -->
+  <main id="view-stats" class="view" data-view="stats" hidden>
+    <header class="topbar topbar--simple">
+      <div class="topbar__row"><h1 class="title">Statistiche</h1></div>
+      <div class="segmented" id="stats-range">
+        <button data-range="month" class="is-active">Mese</button>
+        <button data-range="year">Anno</button>
+        <button data-range="all">Sempre</button>
+      </div>
+    </header>
+    <div class="stack" id="stats-body"></div>
+  </main>
+
+  <!-- ─────── IMPOSTAZIONI ─────── -->
+  <main id="view-settings" class="view" data-view="settings" hidden>
+    <header class="topbar topbar--simple">
+      <div class="topbar__row"><h1 class="title">Impostazioni</h1></div>
+    </header>
+    <div class="stack" id="settings-body"></div>
+  </main>
+
+  <!-- ─────── CESTINO ─────── -->
+  <main id="view-trash" class="view view--sub" data-view="trash" hidden>
+    <header class="topbar topbar--simple">
+      <div class="topbar__row">
+        <button class="iconbtn" data-back aria-label="Indietro" data-icon="back"></button>
+        <h1 class="title">Cestino</h1>
+      </div>
+      <p class="topbar__hint">Gli scontrini eliminati restano qui 30 giorni prima di sparire.</p>
+    </header>
+    <div class="stack" id="trash-body"></div>
+  </main>
+
+  <!-- ─────── DETTAGLIO ─────── -->
+  <main id="view-detail" class="view view--sub" data-view="detail" hidden>
+    <div id="detail-body"></div>
+  </main>
+
+  <!-- ─────── NAV ─────── -->
+  <nav class="tabbar" id="tabbar">
+    <button class="tab is-active" data-tab="home"><span data-icon="receipt"></span><em>Scontrini</em></button>
+    <button class="tab" data-tab="stats"><span data-icon="chart"></span><em>Statistiche</em></button>
+    <div class="tabbar__slot" aria-hidden="true"></div>
+    <button class="tab" data-tab="settings"><span data-icon="settings"></span><em>Impostazioni</em></button>
+    <div class="tabbar__spacer" aria-hidden="true"></div>
+  </nav>
+
+  <button class="fab" id="fab" aria-label="Aggiungi scontrino"><span data-icon="plus"></span></button>
+</div>
+
+<!-- ══════════════ OVERLAY LAYERS ══════════════ -->
+<div id="sheet-root"></div>
+<div id="viewer-root"></div>
+<div id="toast-root" class="toasts" aria-live="polite"></div>
+<div id="modal-root"></div>
+
+<input type="file" id="input-camera" accept="image/*" capture="environment" hidden />
+<input type="file" id="input-gallery" accept="image/*" multiple hidden />
+<input type="file" id="input-restore" accept="application/json,.json" hidden />
+
+<script src="assets/js/icons.js"></script>
+<script src="assets/js/util.js"></script>
+<script src="assets/js/db.js"></script>
+<script src="assets/js/media.js"></script>
+<script src="assets/js/zip.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
