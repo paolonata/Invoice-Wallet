@@ -3,7 +3,7 @@
    Tutto gira nel browser: nessun account, nessun server.
    ══════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = '1.0.1';
+const APP_VERSION = '1.1.0';
 
 const DEFAULT_SETTINGS = {
   theme: 'auto',        // auto | light | dark
@@ -826,12 +826,14 @@ async function handleFiles(files, { fromCamera = false } = {}) {
   }
   closeToast();
 
+  const letto = await provaLettura(processed[0]);
+
   if (processed.length > 1 && !fromCamera) {
     openActionSheet(`${processed.length} foto selezionate`, [
       {
         icon: 'receipt', label: 'Sono un unico scontrino',
         hint: 'Più pagine dello stesso documento',
-        onClick: () => openEditor({ photos: processed }),
+        onClick: () => openEditor({ photos: processed, suggerimenti: letto }),
       },
       {
         icon: 'grid', label: `Sono ${processed.length} scontrini diversi`,
@@ -842,7 +844,25 @@ async function handleFiles(files, { fromCamera = false } = {}) {
     return;
   }
 
-  openEditor({ photos: processed });
+  openEditor({ photos: processed, suggerimenti: letto });
+}
+
+/**
+ * Legge lo scontrino con il riconoscimento del testo, se disponibile.
+ * Un fallimento non deve mai fermare il salvataggio: al massimo si compila a mano.
+ */
+async function provaLettura(foto) {
+  if (!foto || !ocrDisponibile()) return null;
+  const chiudi = toast('Leggo lo scontrino…', { icon: 'sparkle', duration: 30000 });
+  try {
+    const letto = await leggiScontrino(foto.blob);
+    chiudi();
+    return letto && (letto.amount != null || letto.date || letto.title) ? letto : null;
+  } catch (err) {
+    console.warn('lettura non riuscita:', err);
+    chiudi();
+    return null;
+  }
 }
 
 async function quickSaveMany(photos) {
@@ -864,7 +884,7 @@ async function quickSaveMany(photos) {
 
 /* ── Editor ───────────────────────────────────────────────── */
 
-async function openEditor({ receipt = null, photos = null }) {
+async function openEditor({ receipt = null, photos = null, suggerimenti = null }) {
   let working = photos;
   if (!working && receipt) {
     const saved = await DB.getPhotos(receipt.photoIds);
@@ -872,11 +892,14 @@ async function openEditor({ receipt = null, photos = null }) {
   }
   working = working || [];
 
+  // I suggerimenti valgono solo sui campi ancora vuoti: quello che hai
+  // scritto tu non viene mai sovrascritto.
+  const proposto = suggerimenti || {};
   const draft = {
-    amount: receipt?.amount ?? null,
-    title: receipt?.title || '',
-    date: receipt?.date || todayISO(),
-    category: receipt?.category || 'altro',
+    amount: receipt?.amount ?? proposto.amount ?? null,
+    title: receipt?.title || proposto.title || '',
+    date: receipt?.date || proposto.date || todayISO(),
+    category: receipt?.category || proposto.category || 'altro',
     note: receipt?.note || '',
     favorite: !!receipt?.favorite,
     warrantyUntil: receipt?.warrantyUntil || null,
@@ -887,7 +910,19 @@ async function openEditor({ receipt = null, photos = null }) {
     warrantyYears: receipt?.warrantyYears ?? null,
   };
 
+  const compilati = [
+    proposto.amount != null && 'importo',
+    proposto.title && 'negozio',
+    proposto.date && 'data',
+  ].filter(Boolean);
+
   const body = `
+    ${compilati.length ? `
+      <div class="note">
+        ${icon('sparkle')}
+        <div><b>Letto dallo scontrino</b>Ho compilato ${esc(compilati.join(', '))}. Controlla che sia giusto: correggere è normale.</div>
+      </div>` : ''}
+
     <div class="field">
       <label>Importo</label>
       <div class="amount-field">
@@ -919,6 +954,10 @@ async function openEditor({ receipt = null, photos = null }) {
     <div class="field">
       <label>Foto</label>
       <div class="photostrip" id="f-photos"></div>
+      ${ocrDisponibile() ? `
+        <button type="button" class="btn btn--ghost btn--block" id="f-rileggi" style="margin-top:4px">
+          ${icon('sparkle')} Compila leggendo la foto
+        </button>` : ''}
     </div>
 
     <div class="field">
@@ -1080,6 +1119,40 @@ async function openEditor({ receipt = null, photos = null }) {
 
       const retSw = ret.sw;
       const warSw = war.sw;
+
+      // Rilettura su richiesta: utile se la prima foto era storta o mossa.
+      $('#f-rileggi', sheet)?.addEventListener('click', async (e) => {
+        if (!working.length) { toastError('Serve una foto da leggere.'); return; }
+        const stop = withBusy(e.currentTarget, 'Leggo…');
+        try {
+          const letto = await leggiScontrino(working[0].blob);
+          stop();
+          if (!letto || (letto.amount == null && !letto.date && !letto.title)) {
+            toast('Non sono riuscito a leggerlo: prova con più luce', { icon: 'info', duration: 4000 });
+            return;
+          }
+          const messi = [];
+          if (letto.amount != null) {
+            $('#f-amount', sheet).value = String(letto.amount).replace('.', ',');
+            messi.push('importo');
+          }
+          if (letto.title) { $('#f-title', sheet).value = letto.title; messi.push('negozio'); }
+          if (letto.date) {
+            $('#f-date', sheet).value = letto.date;
+            $('#f-date', sheet).dispatchEvent(new Event('change'));
+            messi.push('data');
+          }
+          if (letto.category) {
+            draft.category = letto.category;
+            $$('#f-cats .cat', sheet).forEach((b) => b.classList.toggle('is-active', b.dataset.cat === letto.category));
+          }
+          toast(`Compilati: ${messi.join(', ')}`, { icon: 'check' });
+        } catch (err) {
+          console.error(err);
+          stop();
+          toastError('Lettura non riuscita.');
+        }
+      });
 
       sheet.querySelector('[data-cancel]').addEventListener('click', () => close());
 

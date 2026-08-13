@@ -2,6 +2,8 @@ package com.invoicewallet.app;
 
 import android.content.ContentValues;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -10,6 +12,12 @@ import android.webkit.JavascriptInterface;
 
 import androidx.core.content.FileProvider;
 
+import com.google.android.gms.tasks.Tasks;
+import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.text.TextRecognition;
+import com.google.mlkit.vision.text.TextRecognizer;
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -17,6 +25,7 @@ import java.io.OutputStream;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Ponte fra la pagina e Android per far uscire i file (backup e foto).
@@ -51,6 +60,12 @@ public class FileBridge {
   @JavascriptInterface
   public String versionName() {
     return BuildConfig.VERSION_NAME;
+  }
+
+  /** La pagina chiede se questo dispositivo sa leggere il testo dalle foto. */
+  @JavascriptInterface
+  public boolean canReadText() {
+    return true;
   }
 
   /** Apre un trasferimento e restituisce il token da usare nei pezzi. */
@@ -102,6 +117,7 @@ public class FileBridge {
       t.out.flush();
       t.out.close();
       if ("share".equals(mode)) return share(t);
+      if ("ocr".equals(mode)) return readText(t);
       return saveToDownloads(t);
     } catch (Exception e) {
       return "";
@@ -141,6 +157,31 @@ public class FileBridge {
     activity.getContentResolver().update(target, values, null, null);
 
     return "Download/Invoice Wallet/" + t.name;
+  }
+
+  /**
+   * Legge il testo stampato sulla foto. Tutto in locale: l'immagine non esce
+   * dal telefono e non serve connessione.
+   */
+  private String readText(Transfer t) {
+    TextRecognizer recognizer = null;
+    Bitmap bitmap = null;
+    try {
+      BitmapFactory.Options opts = new BitmapFactory.Options();
+      opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
+      bitmap = BitmapFactory.decodeFile(t.file.getAbsolutePath(), opts);
+      if (bitmap == null) return "";
+
+      recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+      // Il ponte JavaScript gira fuori dal thread principale: qui si può attendere.
+      return Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0)), 25, TimeUnit.SECONDS)
+          .getText();
+    } catch (Exception e) {
+      return "";
+    } finally {
+      if (recognizer != null) recognizer.close();
+      if (bitmap != null) bitmap.recycle();
+    }
   }
 
   private String share(Transfer t) {

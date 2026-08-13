@@ -18,6 +18,7 @@ Nessun riconoscimento del testo — l'app salva la foto e i quattro dati che ser
 | 🗂️ **Ordine automatico** | Raggruppati per mese, con il totale speso sempre in cima |
 | 🔎 **Ritrova tutto** | Ricerca per negozio, nota, importo o data + filtri per categoria e preferiti |
 | 📊 **Statistiche** | Quanto spendi al mese, dove vanno i soldi, lo scontrino più caro |
+| ✨ **Compila da sola** | Nell'app Android legge lo scontrino e riempie totale, data e negozio |
 | ⏳ **Scadenze resi e cambi** | Una scheda dedicata ti dice quanti giorni restano per restituire o cambiare |
 | 🛡️ **Cestino di sicurezza** | Quello che elimini resta recuperabile per 30 giorni |
 | 💾 **Backup completo** | Un file `.zip` con tutte le foto + un `.csv` apribile con Excel |
@@ -58,6 +59,22 @@ comoda per un'app personale installata a mano.
 **Non perdere quel file.** Senza, le versioni future non si installerebbero più
 sopra quelle già sul telefono: si ripartirebbe da una disinstallazione, con gli
 scontrini da recuperare dal backup `.zip`.
+
+### Lettura automatica dello scontrino
+
+Nell'app Android, appena scatti la foto il testo viene riconosciuto **sul telefono**
+(ML Kit, senza rete e senza account) e l'app compila da sola **totale, data e
+negozio**, indovinando anche la categoria per le catene più diffuse. I campi
+restano tutti modificabili: quello che scrivi tu non viene mai sovrascritto, e
+c'è un pulsante *Compila leggendo la foto* per riprovare se lo scatto era storto.
+
+Il riconoscimento non tocca ancora le singole voci della spesa: per ora legge le
+tre cose che si digitano ogni volta. La parte che interpreta il testo è in
+`assets/js/ocr.js` ed è coperta da `tests/ocr.mjs` con scontrini di esempio —
+se una catena viene letta male, si aggiunge una riga lì e il test dice subito
+se è migliorata.
+
+Nella versione web questa parte non c'è: il riconoscimento arriva da Android.
 
 ### Scadenze per resi e cambi
 
@@ -107,6 +124,7 @@ assets/js/
   db.js                  archivio IndexedDB (scontrini, foto, impostazioni)
   media.js               ridimensiona e comprime le foto, miniature
   zip.js                 lettura e scrittura ZIP per i backup
+  ocr.js                 dal testo dello scontrino a totale, data e negozio
   ui.js                  toast, bottom sheet, conferme, zoom foto
   app.js                 stato, schermate, azioni
 tools/gen-icons.js       rigenera le icone PNG (node tools/gen-icons.js icons)
