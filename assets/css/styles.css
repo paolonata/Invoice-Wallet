@@ -506,40 +506,94 @@ svg { width: 100%; height: 100%; display: block; }
 }
 .photostrip__add [data-icon] { width: 20px; height: 20px; }
 
-/* ── Dettaglio ─────────────────────────────────────────────── */
-.detail__hero { position: relative; background: var(--surface-3); }
-.detail__hero img { width: 100%; max-height: 62vh; object-fit: contain; background: var(--surface-3); }
+/* ── Dettaglio: tutto in una schermata, senza scorrere ─────── */
+.view--detail {
+  height: 100dvh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#detail-body { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+
 .detail__nav {
-  position: sticky; top: 0; z-index: 5;
+  flex: none;
   display: flex; align-items: center; gap: 8px;
-  padding: calc(var(--safe-t) + 8px) var(--pad) 8px;
-  background: linear-gradient(var(--bg) 65%, transparent);
+  padding: calc(var(--safe-t) + 10px) var(--pad) 8px;
 }
 .detail__nav .spacer { flex: 1; }
-.detail__gallery { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 10px var(--pad) 0; }
+
+/* La foto assorbe lo spazio che avanza: mai una schermata da scorrere. */
+.detail__hero {
+  position: relative;
+  flex: 1 1 auto; min-height: 120px;
+  margin: 0 var(--pad);
+  border-radius: var(--r-lg);
+  background: var(--surface-3);
+  overflow: hidden;
+  display: block; width: calc(100% - var(--pad) * 2);
+  transition: transform .16s var(--ease);
+}
+.detail__hero:active { transform: scale(.985); }
+.detail__hero img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+
+.detail__zoom {
+  position: absolute; right: 10px; bottom: 10px;
+  width: 34px; height: 34px; border-radius: 12px;
+  display: grid; place-items: center; color: #fff;
+  background: rgba(0,0,0,.5); backdrop-filter: blur(6px);
+}
+.detail__zoom [data-icon] { width: 19px; height: 19px; }
+.detail__count {
+  position: absolute; left: 10px; bottom: 10px;
+  padding: 5px 10px; border-radius: 10px;
+  background: rgba(0,0,0,.5); backdrop-filter: blur(6px);
+  color: #fff; font-size: 12px; font-weight: 700;
+}
+
+.detail__gallery {
+  flex: none;
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+  padding: 10px var(--pad) 0;
+}
 .detail__gallery::-webkit-scrollbar { display: none; }
-.detail__gallery img { width: 58px; height: 72px; object-fit: cover; border-radius: 10px; border: 2px solid transparent; flex: none; }
+.detail__gallery img { width: 46px; height: 58px; object-fit: cover; border-radius: 9px; border: 2px solid transparent; flex: none; }
 .detail__gallery img.is-active { border-color: var(--accent); }
 
-.detail__head { padding: 18px var(--pad) 4px; display: grid; gap: 6px; }
-.detail__amount { font-size: 36px; font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
-.detail__title { font-size: 19px; font-weight: 650; letter-spacing: -.01em; }
-.detail__tags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 6px; }
+.detail__info {
+  flex: none;
+  padding: 14px var(--pad) calc(var(--safe-b) + 14px);
+  display: grid; gap: 10px;
+}
+.detail__head { display: grid; gap: 2px; }
+.detail__amount { font-size: 32px; font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.detail__title { font-size: 17px; font-weight: 600; letter-spacing: -.01em; color: var(--ink-2); }
+
+.detail__tags { display: flex; flex-wrap: wrap; gap: 7px; }
 .tag {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 999px;
   background: var(--surface); border: 1px solid var(--line); font-size: 13px; font-weight: 600; color: var(--ink-2);
 }
-.detail__actions { display: flex; gap: 8px; padding: 16px var(--pad) 6px; }
-.detail__actions .btn { flex: 1; padding: 12px 10px; font-size: 14px; }
-.detail__actions .btn [data-icon] { width: 18px; height: 18px; }
+.tag [data-icon] { width: 15px; height: 15px; }
 
-.infolist { margin: 12px var(--pad) 0; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
-.infolist__row { display: flex; align-items: flex-start; gap: 12px; padding: 14px 15px; border-bottom: 1px solid var(--line-soft); }
-.infolist__row:last-child { border-bottom: 0; }
-.infolist__row [data-icon] { color: var(--ink-3); width: 19px; height: 19px; margin-top: 1px; }
-.infolist__row div { flex: 1; min-width: 0; }
-.infolist__row b { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); margin-bottom: 3px; }
-.infolist__row p { font-size: 15px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+/* La nota può essere lunga: scorre dentro sé stessa, non trascina la pagina. */
+.detail__note {
+  display: flex; gap: 9px; align-items: flex-start;
+  max-height: 4.6em; overflow-y: auto;
+  padding: 11px 13px; border-radius: var(--r-md);
+  background: var(--surface); border: 1px solid var(--line);
+  font-size: 14px; line-height: 1.5; color: var(--ink-2); white-space: pre-wrap;
+}
+.detail__note [data-icon] { width: 17px; height: 17px; flex: none; color: var(--ink-3); margin-top: 2px; }
+
+.detail__actions { display: flex; gap: 8px; }
+.detail__actions .btn { flex: 1; padding: 13px 10px; font-size: 15px; }
+
+/* Schermi alti o desktop: la foto non deve diventare gigantesca. */
+@media (min-width: 620px) {
+  .detail__hero { max-height: 52vh; align-self: center; max-width: 620px; }
+  #detail-body { max-width: 780px; width: 100%; margin: 0 auto; }
+}
 
 /* ── Visualizzatore foto ───────────────────────────────────── */
 .viewer {

@@ -133,6 +133,15 @@ android/                 contenitore Android: WebView + ponte per salvare i file
 .github/workflows/       pages.yml (sito) e android.yml (APK + Release)
 ```
 
+**Comportamento da app, non da sito.** La schermata di dettaglio sta tutta in
+uno schermo: la foto occupa lo spazio che avanza e i dati restano sempre
+visibili, senza scorrere; per leggere lo scontrino si tocca la foto e si apre a
+schermo intero. Il tasto Indietro di Android chiude prima quello che è aperto
+sopra la pagina — foto ingrandita, schede, conferme — e solo dopo torna alla
+schermata precedente: `MainActivity` interroga `window.chiudiSovrapposizione()`
+prima di gestire il tasto, e nel browser la stessa pila è collegata alla
+cronologia.
+
 **Perché nell'app non c'è il service worker.** Nella versione web serve a far
 funzionare l'app offline. Dentro l'APK i file sono già nel pacchetto: una copia
 in cache non aggiungerebbe nulla e continuerebbe a servire la versione

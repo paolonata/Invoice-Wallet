@@ -3,7 +3,7 @@
    Tutto gira nel browser: nessun account, nessun server.
    ══════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = '1.1.2';
+const APP_VERSION = '1.2.0';
 
 const DEFAULT_SETTINGS = {
   theme: 'auto',        // auto | light | dark
@@ -126,6 +126,18 @@ function go(view, opts = {}) {
 }
 
 window.addEventListener('popstate', (e) => {
+  /*
+   * Nel browser il tasto Indietro passa di qui: se c'è qualcosa di aperto
+   * sopra la pagina lo chiudo e resto dov'ero, come farebbe un'app.
+   * Dentro l'app Android ci pensa il codice nativo, prima ancora di arrivare
+   * alla cronologia.
+   */
+  if (!isAndroidApp && sovrapposizioniAperte()) {
+    chiudiSovrapposizione();
+    history.pushState({ view: state.view, id: state.detailId }, '');
+    return;
+  }
+
   const s = e.state || { view: 'home' };
   state.view = s.view || 'home';
   state.detailId = s.id ?? null;
@@ -267,7 +279,7 @@ function deadlineTag(r, kind) {
   if (!date) return '';
   const k = DEADLINE_KINDS[kind];
   const st = deadlineStatus(daysLeft(date));
-  return `<span class="tag tag--${st.tone}">${k.emoji} ${esc(k.short)} entro il ${esc(fmtDate(date))} · ${esc(st.text)}</span>`;
+  return `<span class="tag tag--${st.tone}">${k.emoji} ${esc(k.short)} ${esc(k.prep)} ${esc(fmtDate(date))} · ${esc(st.text)}</span>`;
 }
 
 /** Avviso compatto sulla card quando il tempo per il reso sta finendo. */
@@ -329,6 +341,13 @@ async function renderDetail() {
   if (!r) { box.innerHTML = '<p class="centered">Scontrino non trovato.</p>'; return; }
 
   const c = catOf(r.category);
+  const quante = r.photoIds.length;
+
+  /*
+   * Tutto in una schermata: la foto prende lo spazio che avanza, i dati
+   * restano sempre sotto gli occhi. Per leggere lo scontrino si tocca la
+   * foto e si apre a schermo intero.
+   */
   box.innerHTML = `
     <div class="detail__nav">
       <button class="iconbtn" data-back aria-label="Indietro">${icon('back')}</button>
@@ -336,31 +355,33 @@ async function renderDetail() {
       <button class="iconbtn" data-fav aria-label="Preferito">${icon(r.favorite ? 'starOn' : 'star')}</button>
       <button class="iconbtn" data-more aria-label="Altre azioni">${icon('more')}</button>
     </div>
-    <div class="detail__hero" data-zoom>
-      <img id="detail-photo" alt="Foto scontrino" src="${thumbURL(r)}">
-    </div>
+
+    <button class="detail__hero" data-zoom aria-label="Apri la foto a schermo intero">
+      <img id="detail-photo" alt="Foto dello scontrino" src="${thumbURL(r)}">
+      <span class="detail__zoom">${icon('zoom')}</span>
+      ${quante > 1 ? `<span class="detail__count">1 / ${quante}</span>` : ''}
+    </button>
+
     <div class="detail__gallery" id="detail-gallery" hidden></div>
-    <div class="detail__head">
-      ${r.amount != null ? `<div class="detail__amount">${esc(fmtMoney(r.amount, r.currency || cur()))}</div>` : ''}
-      <div class="detail__title">${esc(r.title || 'Scontrino')}</div>
+
+    <div class="detail__info">
+      <div class="detail__head">
+        ${r.amount != null ? `<div class="detail__amount">${esc(fmtMoney(r.amount, r.currency || cur()))}</div>` : ''}
+        <div class="detail__title">${esc(r.title || 'Scontrino')}</div>
+      </div>
+
       <div class="detail__tags">
         <span class="tag">${c.emoji} ${esc(c.label)}</span>
         <span class="tag">${icon('calendar')} ${esc(fmtDate(r.date, 'long'))}</span>
         ${deadlineTag(r, 'reso')}${deadlineTag(r, 'garanzia')}
       </div>
-    </div>
-    <div class="detail__actions">
-      <button class="btn" data-edit>${icon('edit')} Modifica</button>
-      <button class="btn" data-share>${icon('share')} Condividi</button>
-      <button class="btn" data-zoom-btn>${icon('zoom')} Ingrandisci</button>
-    </div>
-    ${r.note ? `<div class="infolist"><div class="infolist__row">${icon('note')}<div><b>Nota</b><p>${esc(r.note)}</p></div></div></div>` : ''}
-    <div class="infolist">
-      <div class="infolist__row">${icon('image')}<div><b>Foto</b><p>${r.photoIds.length} ${r.photoIds.length === 1 ? 'immagine' : 'immagini'}</p></div></div>
-      <div class="infolist__row">${icon('receipt')}<div><b>Aggiunto</b><p>${esc(fmtRelative(r.createdAt))}</p></div></div>
-    </div>
-    <div class="stack" style="margin-top:16px">
-      <button class="btn btn--danger btn--block" data-trash>${icon('trash')} Sposta nel cestino</button>
+
+      ${r.note ? `<p class="detail__note">${icon('note')} ${esc(r.note)}</p>` : ''}
+
+      <div class="detail__actions">
+        <button class="btn" data-edit>${icon('edit')} Modifica</button>
+        <button class="btn" data-share>${icon('share')} Condividi</button>
+      </div>
     </div>`;
 
   hydrateIcons(box);
@@ -371,6 +392,7 @@ async function renderDetail() {
   const imgEl = $('#detail-photo', box);
   if (urls[0]) imgEl.src = urls[0];
 
+  const contatore = $('.detail__count', box);
   if (urls.length > 1) {
     const gal = $('#detail-gallery', box);
     gal.hidden = false;
@@ -380,20 +402,22 @@ async function renderDetail() {
       if (!img) return;
       state.detailPhotoIdx = Number(img.dataset.idx);
       imgEl.src = urls[state.detailPhotoIdx];
+      if (contatore) contatore.textContent = `${state.detailPhotoIdx + 1} / ${urls.length}`;
       $$('#detail-gallery img', box).forEach((n) => n.classList.toggle('is-active', n === img));
     });
   }
 
-  const zoom = () => urls.length && openViewer(urls[state.detailPhotoIdx] || urls[0], r.title || 'Scontrino');
-  $('[data-zoom]', box).addEventListener('click', zoom);
-  $('[data-zoom-btn]', box).addEventListener('click', zoom);
+  $('[data-zoom]', box).addEventListener('click', () => {
+    if (urls.length) openViewer(urls[state.detailPhotoIdx] || urls[0], r.title || 'Scontrino');
+  });
   $('[data-back]', box).addEventListener('click', () => history.back());
   $('[data-edit]', box).addEventListener('click', () => openEditor({ receipt: r }));
-  $('[data-trash]', box).addEventListener('click', () => trashReceipt(r, true));
   $('[data-fav]', box).addEventListener('click', () => toggleFavorite(r));
   $('[data-share]', box).addEventListener('click', () => shareReceipt(r, photos));
-  $('[data-more]', box).addEventListener('click', () => openActionSheet('Azioni', [
-    { icon: 'download', label: 'Salva le foto sul dispositivo', hint: 'Scarica i file JPEG originali', onClick: () => downloadPhotos(r, photos) },
+  $('[data-more]', box).addEventListener('click', () => openActionSheet(r.title || 'Scontrino', [
+    { icon: 'image', label: quante > 1 ? `${quante} foto` : '1 foto',
+      hint: `Aggiunto ${fmtRelative(r.createdAt)}`, onClick: () => openEditor({ receipt: r }) },
+    { icon: 'download', label: 'Salva le foto sul dispositivo', hint: 'I file JPEG originali', onClick: () => downloadPhotos(r, photos) },
     { icon: 'copy', label: 'Duplica scontrino', hint: 'Utile per spese ricorrenti', onClick: () => duplicateReceipt(r, photos) },
     { icon: 'trash', label: 'Sposta nel cestino', danger: true, onClick: () => trashReceipt(r, true) },
   ]));
@@ -526,7 +550,7 @@ function deadlineRow(entry) {
       <span class="row__thumb">${r.thumb ? `<img src="${thumbURL(r)}" alt="" loading="lazy">` : ''}</span>
       <span class="row__main">
         <span class="row__title">${esc(r.title || 'Scontrino')}</span>
-        <span class="row__sub">${k.emoji} ${esc(k.short)} entro il ${esc(fmtDate(entry.date))}${r.amount != null ? ` · ${esc(fmtMoney(r.amount, r.currency || cur()))}` : ''}</span>
+        <span class="row__sub">${k.emoji} ${esc(k.short)} ${esc(k.prep)} ${esc(fmtDate(entry.date))}${r.amount != null ? ` · ${esc(fmtMoney(r.amount, r.currency || cur()))}` : ''}</span>
       </span>
       <span class="pill pill--${st.tone}">${esc(st.text)}</span>
     </button>`;

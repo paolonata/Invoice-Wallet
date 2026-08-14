@@ -158,8 +158,8 @@ function daysLeft(iso) {
 }
 
 const DEADLINE_KINDS = {
-  reso:     { label: 'Reso o cambio', short: 'Reso',     emoji: '↩️', icon: 'ret' },
-  garanzia: { label: 'Garanzia',      short: 'Garanzia', emoji: '🛡️', icon: 'shield' },
+  reso:     { label: 'Reso o cambio', short: 'Reso',     prep: 'entro il', emoji: '↩️', icon: 'ret' },
+  garanzia: { label: 'Garanzia',      short: 'Garanzia', prep: 'fino al',  emoji: '🛡️', icon: 'shield' },
 };
 
 /** Come mostrare una scadenza: gravità, colore e testo pronto. */
@@ -175,9 +175,12 @@ function deadlineStatus(days) {
   if (days <= 7) return { level: 'settimana', tone: 'amber', urgent: true, text: `fra ${days} giorni` };
   if (days <= 30) return { level: 'mese', tone: 'green', urgent: false, text: `fra ${days} giorni` };
   if (days <= 60) return { level: 'oltre', tone: 'plain', urgent: false, text: `fra ${days} giorni` };
-  const mesi = Math.round(days / 30);
+  // Oltre i due mesi i giorni non dicono niente: meglio mesi, poi anni tondi.
+  const mesi = Math.round(days / 30.44);
+  if (mesi <= 20) return { level: 'oltre', tone: 'plain', urgent: false, text: `fra ${mesi} mesi` };
+  const anni = Math.round(days / 365.25);
   return { level: 'oltre', tone: 'plain', urgent: false,
-           text: mesi < 12 ? `fra ${mesi} mesi` : `fra ${(days / 365).toFixed(1).replace('.', ',')} anni` };
+           text: anni === 1 ? 'fra un anno' : `fra ${anni} anni` };
 }
 
 /** Aggiunge giorni a una data ISO restituendo una data ISO. */

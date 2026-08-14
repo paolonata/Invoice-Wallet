@@ -124,7 +124,7 @@ await page.waitForTimeout(900);
 await shot('05-detail');
 
 // visualizzatore
-await page.click('[data-zoom-btn]');
+await page.click('[data-zoom]');            // la foto si apre toccandola
 await page.waitForTimeout(700);
 await shot('06-viewer');
 await page.click('.viewer__close');
@@ -194,7 +194,9 @@ await shot('11-restored');
 // cestino
 await page.click('.card');
 await page.waitForTimeout(700);
-await page.click('[data-trash]');
+await page.click('[data-more]');            // il cestino sta nel menu azioni
+await page.waitForTimeout(500);
+await page.click('.action:has-text("cestino")');
 await page.waitForTimeout(900);
 await shot('12-trash-toast');
 await page.click('.tab[data-tab="settings"]');

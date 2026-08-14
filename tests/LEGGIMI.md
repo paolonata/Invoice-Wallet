@@ -11,6 +11,7 @@ node tests/app.mjs            # giro completo: foto, ricerca, backup, ripristino
 node tests/scadenze.mjs       # regressione: le scadenze seguono la data dello scontrino
 node tests/ocr-flusso.mjs     # lettura automatica, con un finto ponte Android
 node tests/service-worker.mjs # offline nel browser, nessuna cache dentro l'app
+node tests/navigazione.mjs    # tasto Indietro e dettaglio in una schermata
 ```
 
 Ognuno avvia da sé un server statico sulla cartella del progetto, quindi non

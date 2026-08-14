@@ -103,11 +103,22 @@ public class MainActivity extends AppCompatActivity {
 
     webView.addJavascriptInterface(new FileBridge(this), "AndroidHost");
 
+    /*
+     * Tasto Indietro, nell'ordine che si aspetta chi usa un telefono:
+     * prima chiude quello che è aperto sopra la pagina (foto a schermo
+     * intero, schede, conferme), poi torna alla schermata precedente,
+     * infine esce dall'app.
+     */
     getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
       @Override
       public void handleOnBackPressed() {
-        if (webView.canGoBack()) webView.goBack();
-        else finish();
+        webView.evaluateJavascript(
+            "(function(){try{return !!(window.chiudiSovrapposizione && window.chiudiSovrapposizione())}catch(e){return false}})()",
+            risposta -> {
+              if ("true".equals(risposta)) return;      // ci ha pensato la pagina
+              if (webView.canGoBack()) webView.goBack();
+              else finish();
+            });
       }
     });
 

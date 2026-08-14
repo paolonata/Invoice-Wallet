@@ -14,6 +14,44 @@ function el(html) {
   return node;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   Pila delle sovrapposizioni (foto a schermo intero, schede, conferme).
+
+   Su un telefono il tasto Indietro deve chiudere quello che è aperto, non
+   uscire dalla schermata. L'app Android chiede a questa pila prima di
+   gestire il tasto; nel browser ci pensa la cronologia.
+   ══════════════════════════════════════════════════════════════ */
+
+const sovrapposizioni = [];
+
+/** Registra una sovrapposizione. Restituisce come toglierla dalla pila. */
+function registraSovrapposizione(chiudi) {
+  const voce = { chiudi };
+  sovrapposizioni.push(voce);
+  return () => {
+    const i = sovrapposizioni.indexOf(voce);
+    if (i >= 0) sovrapposizioni.splice(i, 1);
+  };
+}
+
+/**
+ * Chiude quella più in alto.
+ * @returns {boolean} true se c'era qualcosa da chiudere.
+ * Chiamata anche da Android: il nome deve restare questo.
+ */
+function chiudiSovrapposizione() {
+  const voce = sovrapposizioni.pop();
+  if (!voce) return false;
+  voce.chiudi();
+  return true;
+}
+window.chiudiSovrapposizione = chiudiSovrapposizione;
+
+/** C'è qualcosa di aperto sopra la pagina? */
+function sovrapposizioniAperte() {
+  return sovrapposizioni.length > 0;
+}
+
 /* ── Toast ───────────────────────────────────────────────────── */
 function toast(message, opts = {}) {
   const { icon: iconName = 'check', action, duration = 3200, type = '' } = opts;
@@ -62,10 +100,12 @@ function openSheet({ title = '', body = '', footer = '', onMount, onClose, closa
 
   hydrateIcons(backdrop);
   let closed = false;
+  let togliDallaPila = () => {};
 
   const close = (result) => {
     if (closed) return;
     closed = true;
+    togliDallaPila();
     backdrop.classList.add('is-closing');
     setTimeout(() => {
       backdrop.remove();
@@ -81,6 +121,7 @@ function openSheet({ title = '', body = '', footer = '', onMount, onClose, closa
 
   openSheets++;
   document.body.style.overflow = 'hidden';
+  togliDallaPila = registraSovrapposizione(() => close());
   $('#sheet-root').appendChild(backdrop);
   onMount?.(backdrop.querySelector('.sheet'), close);
   return close;
@@ -125,10 +166,12 @@ function confirmDialog({ title, text, confirmLabel = 'Conferma', cancelLabel = '
         </div>
       </div>`);
 
-    const finish = (value) => { backdrop.remove(); resolve(value); };
+    let togliDallaPila = () => {};
+    const finish = (value) => { togliDallaPila(); backdrop.remove(); resolve(value); };
     backdrop.querySelector('[data-no]').addEventListener('click', () => finish(false));
     backdrop.querySelector('[data-yes]').addEventListener('click', () => finish(true));
     backdrop.addEventListener('click', (e) => { if (e.target === backdrop) finish(false); });
+    togliDallaPila = registraSovrapposizione(() => finish(false));
     $('#modal-root').appendChild(backdrop);
     backdrop.querySelector('[data-yes]').focus();
   });
@@ -159,7 +202,8 @@ function openViewer(src, alt = 'Scontrino') {
     y = Math.min(limitY, Math.max(-limitY, y));
   };
 
-  const close = () => { node.remove(); document.body.style.overflow = ''; };
+  let togliDallaPila = () => {};
+  const close = () => { togliDallaPila(); node.remove(); document.body.style.overflow = ''; };
   node.querySelector('.viewer__close').addEventListener('click', close);
 
   // doppio tap
@@ -235,6 +279,7 @@ function openViewer(src, alt = 'Scontrino') {
   });
 
   document.body.style.overflow = 'hidden';
+  togliDallaPila = registraSovrapposizione(close);
   $('#viewer-root').appendChild(node);
   setTimeout(() => hint?.remove(), 3200);
   return close;
