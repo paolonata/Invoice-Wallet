@@ -133,6 +133,21 @@ android/                 contenitore Android: WebView + ponte per salvare i file
 .github/workflows/       pages.yml (sito) e android.yml (APK + Release)
 ```
 
+**L'aspetto: carta e penna.** L'app conserva pezzi di carta stampata, e
+l'interfaccia segue quell'idea: fondo carta, testo inchiostro, e un solo colore
+forte — il blu della penna — riservato a ciò che si tocca o che chiede
+attenzione. Tre regole tengono insieme il tutto:
+
+1. **il colore ha un significato**: blu = azione, ambra = fra poco, rosso = ora.
+   Niente colori decorativi;
+2. **si separa con linee sottili, non con ombre**: l'ombra è solo di ciò che
+   galleggia davvero (pulsante di scatto, schede, avvisi);
+3. **i numeri sono grandi e a larghezza fissa**, così si leggono in colonna.
+
+Sulla lista il totale del periodo è il protagonista, con il confronto sul mese
+precedente e sei colonnine che mostrano l'andamento recente: due informazioni
+utili nello spazio che prima occupava una decorazione.
+
 **Comportamento da app, non da sito.** La schermata di dettaglio sta tutta in
 uno schermo: la foto occupa lo spazio che avanza e i dati restano sempre
 visibili, senza scorrere; per leggere lo scontrino si tocca la foto e si apre a

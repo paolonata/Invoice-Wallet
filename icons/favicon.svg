@@ -1,16 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Invoice Wallet">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#16ad7e"/>
-      <stop offset="1" stop-color="#086047"/>
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="14" fill="url(#g)"/>
-  <path d="M20 12h24a2 2 0 0 1 2 2v38l-4.4-3.4L37.2 52l-4.4-3.4L28.4 52 24 48.6 20 52V14a2 2 0 0 1 2-2Z"
-        fill="#ffffff"/>
-  <g fill="#b0c4bc">
-    <rect x="25" y="21" width="14" height="3.4" rx="1.7"/>
-    <rect x="25" y="29" width="14" height="3.4" rx="1.7"/>
-    <rect x="25" y="37" width="8"  height="3.4" rx="1.7"/>
-  </g>
+  <rect width="64" height="64" rx="14" fill="#16151a"/>
+  <path d="M20 12h24a2 2 0 0 1 2 2v38l-4.4-3.4L37.2 52l-4.4-3.4L28.4 52 24 48.6 20 52V14a2 2 0 0 1 2-2Z" fill="#ffffff"/>
+  <rect x="25" y="21" width="14" height="3.4" rx="1.7" fill="#b0b2be"/>
+  <rect x="25" y="29" width="14" height="3.4" rx="1.7" fill="#b0b2be"/>
+  <rect x="25" y="37" width="8"  height="3.4" rx="1.7" fill="#2f53f0"/>
 </svg>

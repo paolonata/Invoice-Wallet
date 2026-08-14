@@ -10,9 +10,11 @@
         android:fillColor="#FFFFFF"
         android:pathData="M3,0 h42 a3,3 0 0 1 3,3 v46 l-6,-5 -6,5 -6,-5 -6,5 -6,-5 -6,5 -6,-5 -6,5 V3 a3,3 0 0 1 3,-3 z" />
     <path
-        android:fillColor="#B0C4BC"
+        android:fillColor="#B0B2BE"
         android:pathData="M12,12 h24 a2,2 0 0 1 0,4 h-24 a2,2 0 0 1 0,-4 z
-                          M12,22 h24 a2,2 0 0 1 0,4 h-24 a2,2 0 0 1 0,-4 z
-                          M12,32 h13 a2,2 0 0 1 0,4 h-13 a2,2 0 0 1 0,-4 z" />
+                          M12,22 h24 a2,2 0 0 1 0,4 h-24 a2,2 0 0 1 0,-4 z" />
+    <path
+        android:fillColor="#2F53F0"
+        android:pathData="M12,32 h13 a2,2 0 0 1 0,4 h-13 a2,2 0 0 1 0,-4 z" />
   </group>
 </vector>

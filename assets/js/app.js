@@ -3,7 +3,7 @@
    Tutto gira nel browser: nessun account, nessun server.
    ══════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '2.0.0';
 
 const DEFAULT_SETTINGS = {
   theme: 'auto',        // auto | light | dark
@@ -185,10 +185,17 @@ function renderMonths() {
 
   const html = [
     `<button class="month ${state.filter.month === 'all' ? 'is-active' : ''}" data-month="all">Tutti<small>${liveReceipts().length} scontrini</small></button>`,
-    ...months.map((m) => `
+    ...months.map((m) => {
+      // "agosto" basta: l'anno si scrive solo se non è quello corrente.
+      const [anno] = m.split('-');
+      const etichetta = anno === String(new Date().getFullYear())
+        ? monthLabel(m).split(' ')[0]
+        : monthLabel(m);
+      return `
       <button class="month ${state.filter.month === m ? 'is-active' : ''}" data-month="${m}">
-        ${esc(monthLabel(m))}<small>${esc(fmtMoneyShort(totals[m], cur()))}</small>
-      </button>`),
+        ${esc(etichetta)}<small>${esc(fmtMoneyShort(totals[m], cur()))}</small>
+      </button>`;
+    }),
   ].join('');
 
   const box = $('#months');
@@ -225,21 +232,81 @@ function renderSummary() {
   const withAmount = list.filter((r) => r.amount != null);
   const total = sum(withAmount, (r) => r.amount);
   const avg = withAmount.length ? total / withAmount.length : null;
+  const mese = state.filter.month;
 
   $('#summary').hidden = liveReceipts().length === 0;
-  $('#summary-label').textContent =
-    state.filter.month === 'all' ? 'Totale archivio' : `Totale ${monthLabel(state.filter.month)}`;
+  $('#summary-label').textContent = mese === 'all' ? 'Totale archivio' : monthLabel(mese);
   $('#summary-amount').textContent = fmtMoney(total, cur());
   $('#summary-count').textContent = `${list.length} ${list.length === 1 ? 'scontrino' : 'scontrini'}`;
-  $('#summary-avg').textContent = avg != null ? `media ${fmtMoney(avg, cur())}` : 'importi non indicati';
+
+  /*
+   * Seconda riga: da soli i totali dicono poco, il confronto con il mese
+   * prima invece si legge al volo. Sull'archivio intero il paragone non
+   * ha senso e resta la media.
+   */
+  const meta = $('#summary-avg');
+  const precedente = mese === 'all' ? null : mesePrecedente(mese);
+  const totalePrec = precedente
+    ? sum(liveReceipts().filter((r) => monthKey(r.date) === precedente), (r) => r.amount)
+    : 0;
+
+  meta.className = 'summary__delta';
+  if (precedente && totalePrec > 0 && total > 0) {
+    const variazione = Math.round(((total - totalePrec) / totalePrec) * 100);
+    if (Math.abs(variazione) < 1) {
+      meta.textContent = `come ${monthLabel(precedente).split(' ')[0]}`;
+      meta.className = '';
+    } else {
+      meta.textContent = `${variazione > 0 ? '+' : '−'}${Math.abs(variazione)}% su ${monthLabel(precedente).split(' ')[0]}`;
+      meta.classList.add(variazione > 0 ? 'summary__delta--su' : 'summary__delta--giu');
+    }
+  } else {
+    meta.className = '';
+    meta.textContent = avg != null ? `media ${fmtMoney(avg, cur())}` : 'importi non indicati';
+  }
+
+  renderSpark();
 }
 
+/** '2026-08' → '2026-07' */
+function mesePrecedente(chiave) {
+  const [anno, mese] = chiave.split('-').map(Number);
+  const d = new Date(anno, mese - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Sei colonnine: l'andamento recente sotto il totale, senza numeri. */
+function renderSpark() {
+  const spark = $('#spark');
+  const live = liveReceipts();
+  spark.hidden = live.length === 0;
+  if (!live.length) return;
+
+  const riferimento = state.filter.month === 'all' ? monthKey(todayISO()) : state.filter.month;
+  const [anno, mese] = riferimento.split('-').map(Number);
+
+  const mesi = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(anno, mese - 1 - i, 1);
+    const chiave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    mesi.push({ chiave, totale: sum(live.filter((r) => monthKey(r.date) === chiave), (r) => r.amount) });
+  }
+  // Con un mese solo non c'è nessun andamento da mostrare.
+  if (mesi.filter((m) => m.totale > 0).length < 2) { spark.hidden = true; return; }
+  const massimo = Math.max(...mesi.map((m) => m.totale), 1);
+
+  spark.innerHTML = mesi.map((m, i) => `
+    <span class="spark__bar ${m.chiave === riferimento ? 'is-now' : ''}"
+          style="height:${Math.max(2, Math.round((m.totale / massimo) * 38))}px;animation-delay:${i * 40}ms"
+          title="${esc(monthLabel(m.chiave))}: ${esc(fmtMoney(m.totale, cur()))}"></span>`).join('');
+}
+
+/** Una voce dell'elenco: scheda con foto oppure riga da estratto conto. */
 function receiptCard(r, i) {
   const c = catOf(r.category);
-  const delay = `style="animation-delay:${Math.min(i * 22, 260)}ms"`;
+  const delay = `style="animation-delay:${Math.min(i * 20, 240)}ms"`;
   const src = thumbURL(r);
-  const amount = r.amount != null ? fmtMoney(r.amount, r.currency || cur()) : '';
-
+  const importo = r.amount != null ? fmtMoney(r.amount, r.currency || cur()) : '';
   const chip = returnChip(r);
 
   if (state.settings.layout === 'list') {
@@ -251,8 +318,8 @@ function receiptCard(r, i) {
           <span class="row__sub">${c.emoji} ${esc(c.label)} · ${esc(fmtDate(r.date))}${r.photoIds.length > 1 ? ` · ${r.photoIds.length} foto` : ''}</span>
           ${chip ? `<span class="pill pill--${chip.tone} pill--xs">↩️ ${esc(chip.text)}</span>` : ''}
         </span>
-        ${r.favorite ? `<span class="card__star" data-icon="starOn" style="position:static"></span>` : ''}
-        <span class="row__amount">${esc(amount || '—')}</span>
+        ${r.favorite ? '<span class="card__star" data-icon="starOn" style="position:static"></span>' : ''}
+        <span class="row__amount">${esc(importo || '—')}</span>
       </button>`;
   }
 
@@ -260,15 +327,14 @@ function receiptCard(r, i) {
     <button class="card" data-id="${r.id}" ${delay}>
       <span class="card__img">
         ${src ? `<img src="${src}" alt="Foto di ${esc(r.title || 'scontrino')}" loading="lazy">` : ''}
-        <span class="card__badge">${c.emoji}</span>
         ${chip ? `<span class="card__deadline pill pill--${chip.tone} pill--xs">↩️ ${esc(chip.text)}</span>` : ''}
-        ${r.favorite ? `<span class="card__star" data-icon="starOn"></span>` : ''}
-        ${amount ? `<span class="card__amount">${esc(amount)}</span>` : ''}
+        ${r.favorite ? '<span class="card__star" data-icon="starOn"></span>' : ''}
+        ${importo ? `<span class="card__amount">${esc(importo)}</span>` : ''}
         ${r.photoIds.length > 1 ? `<span class="card__multi">${r.photoIds.length} 📄</span>` : ''}
       </span>
       <span class="card__body">
-        <span class="card__title">${esc(r.title || 'Scontrino')}</span>
-        <span class="card__date">${esc(fmtDate(r.date, 'long'))}</span>
+        <span class="card__title">${c.emoji} ${esc(r.title || 'Scontrino')}</span>
+        <span class="card__date">${esc(fmtDate(r.date))}</span>
       </span>
     </button>`;
 }
@@ -620,8 +686,8 @@ function renderDeadlineAlerts() {
   const st = deadlineStatus(first.days);
   bar.hidden = false;
   bar.innerHTML = imminenti.length === 1
-    ? `${icon('clock')}<span><b>${esc(DEADLINE_KINDS[first.kind].short)} ${esc(st.text)}</b>${esc(first.receipt.title || 'Scontrino')}</span>${icon('chevron')}`
-    : `${icon('clock')}<span><b>${imminenti.length} scadenze imminenti</b>Ultimi giorni per resi e cambi</span>${icon('chevron')}`;
+    ? `${icon('clock')}<span><b>${esc(DEADLINE_KINDS[first.kind].short)} ${esc(st.text)}</b> · ${esc(first.receipt.title || 'Scontrino')}</span>${icon('chevron')}`
+    : `${icon('clock')}<span><b>${imminenti.length} scadenze imminenti</b> · ultimi giorni per resi e cambi</span>${icon('chevron')}`;
   hydrateIcons(bar);
 }
 
@@ -1617,6 +1683,7 @@ function wireGlobalEvents() {
   });
 
   $('#alertbar').addEventListener('click', () => go('deadlines'));
+  $('#spark').addEventListener('click', () => go('stats'));
 
   $('#deadlines-filter').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-kind]');

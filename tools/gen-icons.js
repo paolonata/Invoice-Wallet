@@ -121,8 +121,8 @@ function drawIcon(size, { maskable = false } = {}) {
   const pad = maskable ? S * 0.16 : 0;
   const radius = maskable ? S / 2 : S * 0.22;
 
-  // sfondo: gradiente verticale verde
-  const top = [22, 173, 126], bot = [8, 96, 71];
+  // sfondo: inchiostro, appena schiarito in alto
+  const top = [38, 36, 46], bot = [18, 17, 22];
   fillRoundRect(c, pad, pad, S - pad * 2, S - pad * 2, maskable ? radius : radius, (x, y) => {
     const t = (y - pad) / (S - pad * 2);
     return [
@@ -154,13 +154,14 @@ function drawIcon(size, { maskable = false } = {}) {
   zig.push([rx + rw, zigTop]);
   fillPolygon(c, zig, white);
 
-  // righe di testo
-  const lineColor = [176, 196, 188, 255];
+  // righe di testo: due grigie e l'ultima blu, come una firma a penna
+  const grigio = [176, 178, 190, 255];
+  const penna = [47, 83, 240, 255];
   const lx = rx + rw * 0.16;
   const lw = rw * 0.68;
   const lh = rh * 0.055;
   [0.16, 0.36, 0.56].forEach((t, i) => {
-    fillRoundRect(c, lx, ry + rh * t, i === 2 ? lw * 0.55 : lw, lh, lh / 2, lineColor);
+    fillRoundRect(c, lx, ry + rh * t, i === 2 ? lw * 0.55 : lw, lh, lh / 2, i === 2 ? penna : grigio);
   });
 
   return encodePNG(downsample(c, size), size);
