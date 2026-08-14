@@ -4,6 +4,11 @@
   <!-- Serve solo per il controllo aggiornamenti: gli scontrini non escono mai dal telefono. -->
   <uses-permission android:name="android.permission.INTERNET" />
 
+  <!-- L'inquadratura dal vivo dentro l'app. Se il permesso manca, si ripiega
+       sulla fotocamera del telefono e l'app resta pienamente usabile. -->
+  <uses-permission android:name="android.permission.CAMERA" />
+  <uses-feature android:name="android.hardware.camera" android:required="false" />
+
   <!-- Su Android 11+ va dichiarato cosa vogliamo poter aprire. -->
   <queries>
     <intent>

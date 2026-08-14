@@ -3,7 +3,7 @@
    Tutto gira nel browser: nessun account, nessun server.
    ══════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '3.0.0';
 
 const DEFAULT_SETTINGS = {
   theme: 'auto',        // auto | light | dark
@@ -58,7 +58,7 @@ async function init() {
   // Scorciatoia dell'icona sulla home del telefono: apre subito la fotocamera.
   if (new URLSearchParams(location.search).get('azione') === 'nuovo') {
     history.replaceState({ view: 'home' }, '', location.pathname);
-    setTimeout(startAdd, 500);
+    setTimeout(() => go('camera'), 400);
   }
 }
 
@@ -147,15 +147,15 @@ window.addEventListener('popstate', (e) => {
 /* ═══════════════════ Render ═══════════════════ */
 
 function render() {
-  ['home', 'deadlines', 'stats', 'settings', 'trash', 'detail'].forEach((v) => {
-    $(`#view-${v}`).hidden = v !== state.view;
-  });
+  const viste = ['home', 'camera', 'deadlines', 'stats', 'settings', 'trash', 'detail'];
+  viste.forEach((v) => { $(`#view-${v}`).hidden = v !== state.view; });
 
-  const isSub = state.view === 'detail' || state.view === 'trash';
-  $('#tabbar').hidden = isSub;
-  $('#fab').hidden = isSub;
+  // Il pulsante di scatto vive solo nell'archivio: altrove sarebbe rumore.
+  $('#fab').hidden = state.view !== 'home';
 
-  $$('#tabbar .tab').forEach((t) => t.classList.toggle('is-active', t.dataset.tab === state.view));
+  // La fotocamera resta accesa solo mentre la si guarda.
+  if (state.view === 'camera') apriMirino();
+  else if (Mirino.acceso()) Mirino.spegni();
 
   renderDeadlineAlerts();
   if (state.view === 'home') renderHome();
@@ -235,6 +235,7 @@ function renderSummary() {
   const mese = state.filter.month;
 
   $('#summary').hidden = liveReceipts().length === 0;
+  $('#months').hidden = liveReceipts().length === 0;
   $('#summary-label').textContent = mese === 'all' ? 'Totale archivio' : monthLabel(mese);
   $('#summary-amount').textContent = fmtMoney(total, cur());
   $('#summary-count').textContent = `${list.length} ${list.length === 1 ? 'scontrino' : 'scontrini'}`;
@@ -671,15 +672,10 @@ function renderDeadlines() {
   };
 }
 
-/** Pallino sulla scheda Scadenze + fascia di avviso in cima alla home. */
+/** Fascia di avviso in cima all'archivio: c'è solo quando serve davvero. */
 function renderDeadlineAlerts() {
-  const badge = $('#tab-badge');
-  const count = urgentCount();
-  badge.hidden = count === 0;
-  badge.textContent = count > 9 ? '9+' : String(count);
-
   const bar = $('#alertbar');
-  const imminenti = deadlineEntries().filter((e) => e.days >= 0 && e.days <= 3);
+  const imminenti = deadlineEntries().filter((e) => e.days >= 0 && e.days <= 7);
   if (!imminenti.length) { bar.hidden = true; return; }
 
   const first = imminenti[0];
@@ -687,7 +683,7 @@ function renderDeadlineAlerts() {
   bar.hidden = false;
   bar.innerHTML = imminenti.length === 1
     ? `${icon('clock')}<span><b>${esc(DEADLINE_KINDS[first.kind].short)} ${esc(st.text)}</b> · ${esc(first.receipt.title || 'Scontrino')}</span>${icon('chevron')}`
-    : `${icon('clock')}<span><b>${imminenti.length} scadenze imminenti</b> · ultimi giorni per resi e cambi</span>${icon('chevron')}`;
+    : `${icon('clock')}<span><b>${imminenti.length} scadenze vicine</b> · la prima ${esc(st.text)}</span>${icon('chevron')}`;
   hydrateIcons(bar);
 }
 
@@ -887,89 +883,236 @@ function renderTrash() {
   };
 }
 
-/* ═══════════════════ Aggiunta scontrini ═══════════════════ */
+/* ══════════════════════════════════════════════════════════════
+   Cattura: inquadra, tocca, è salvato.
 
-function startAdd() {
-  haptic();
-  openActionSheet('Nuovo scontrino', [
-    { icon: 'camera', label: 'Scatta una foto', hint: 'Apre la fotocamera', onClick: () => $('#input-camera').click() },
-    { icon: 'image', label: 'Scegli dalla galleria', hint: 'Anche più foto insieme', onClick: () => $('#input-gallery').click() },
-  ]);
+   Nessun modulo da compilare al volo. Lo scontrino entra in archivio
+   subito, con quello che la lettura automatica riesce a ricavare; la
+   scheda che compare dopo lo scatto serve solo a correggere in fretta
+   ciò che manca — di solito l'importo — e sparisce da sola.
+   ══════════════════════════════════════════════════════════════ */
+
+let mirinoInCorso = false;
+
+async function apriMirino() {
+  const vuoto = $('#cam-vuoto');
+  const otturatore = $('#otturatore');
+  if (Mirino.acceso() || mirinoInCorso) return;
+
+  mirinoInCorso = true;
+  vuoto.hidden = false;
+  $('#cam-vuoto-testo').textContent = 'Preparo la fotocamera…';
+  otturatore.disabled = true;
+
+  const esito = await Mirino.accendi();
+  mirinoInCorso = false;
+  if (state.view !== 'camera') { Mirino.spegni(); return; }
+
+  if (esito.ok) {
+    vuoto.hidden = true;
+    otturatore.disabled = false;
+    return;
+  }
+
+  // Senza mirino l'app resta usabile: si passa alla fotocamera del telefono.
+  otturatore.disabled = true;
+  $('#cam-vuoto-testo').textContent = esito.motivo === 'negato'
+    ? 'Senza il permesso della fotocamera non posso mostrarti l inquadratura. Puoi comunque usare quella del telefono.'
+    : 'Su questo dispositivo l inquadratura dal vivo non è disponibile. Usa la fotocamera del telefono.';
 }
 
-async function handleFiles(files, { fromCamera = false } = {}) {
-  const images = [...files].filter((f) => f.type.startsWith('image/'));
-  if (!images.length) return;
+/** Lo scatto: il fotogramma diventa uno scontrino in archivio. */
+async function scattaEArchivia() {
+  const otturatore = $('#otturatore');
+  if (otturatore.disabled) return;
+  otturatore.disabled = true;
+  otturatore.classList.add('is-flash');
+  haptic(18);
 
-  const closeToast = toast(`Preparo ${images.length > 1 ? `${images.length} foto` : 'la foto'}…`, { icon: 'camera', duration: 60000 });
-  let processed = [];
   try {
-    processed = await Promise.all(images.map(async (file) => {
-      const { blob, thumb, width, height } = await processPicture(file, state.settings.quality);
-      return { id: uid(), blob, thumb, width, height, createdAt: Date.now(), isNew: true };
-    }));
+    const grezza = await Mirino.scatta();
+    await archiviaFoto([grezza]);
   } catch (err) {
     console.error(err);
-    closeToast();
-    toastError('Non sono riuscito a leggere la foto. Riprova.');
-    return;
+    toastError('Scatto non riuscito. Riprova.');
+  } finally {
+    otturatore.classList.remove('is-flash');
+    otturatore.disabled = !Mirino.acceso();
   }
-  closeToast();
-
-  const letto = await provaLettura(processed[0]);
-
-  if (processed.length > 1 && !fromCamera) {
-    openActionSheet(`${processed.length} foto selezionate`, [
-      {
-        icon: 'receipt', label: 'Sono un unico scontrino',
-        hint: 'Più pagine dello stesso documento',
-        onClick: () => openEditor({ photos: processed, suggerimenti: letto }),
-      },
-      {
-        icon: 'grid', label: `Sono ${processed.length} scontrini diversi`,
-        hint: 'Li salvo subito, i dettagli li aggiungi dopo',
-        onClick: () => quickSaveMany(processed),
-      },
-    ]);
-    return;
-  }
-
-  openEditor({ photos: processed, suggerimenti: letto });
 }
 
 /**
- * Legge lo scontrino con il riconoscimento del testo, se disponibile.
- * Un fallimento non deve mai fermare il salvataggio: al massimo si compila a mano.
+ * Da immagini grezze a scontrini in archivio, senza passare da un modulo.
+ * @param {Blob[]} immagini
  */
-async function provaLettura(foto) {
-  if (!foto || !ocrDisponibile()) return null;
-  const chiudi = toast('Leggo lo scontrino…', { icon: 'sparkle', duration: 30000 });
-  try {
-    const letto = await leggiScontrino(foto.blob);
-    chiudi();
-    return letto && (letto.amount != null || letto.date || letto.title) ? letto : null;
-  } catch (err) {
-    console.warn('lettura non riuscita:', err);
-    chiudi();
-    return null;
+async function archiviaFoto(immagini, { unicoScontrino = true } = {}) {
+  const preparate = [];
+  for (const file of immagini) {
+    const { blob, thumb, width, height } = await processPicture(file, state.settings.quality);
+    preparate.push({ id: uid(), blob, thumb, width, height, createdAt: Date.now() });
   }
+  if (!preparate.length) return;
+
+  // Più foto scelte dalla galleria: ognuna è uno scontrino a sé, a meno
+  // che non siano le pagine dello stesso documento.
+  if (!unicoScontrino) {
+    const salvati = [];
+    for (const p of preparate) salvati.push(await salvaScatto([p]));
+    await afterChange();
+    toast(`${salvati.length} scontrini in archivio`, { icon: 'check' });
+    mostraScattato(salvati[salvati.length - 1]);
+    return;
+  }
+
+  const record = await salvaScatto(preparate);
+  await afterChange();
+  mostraScattato(record);
+  requestPersistence();
 }
 
-async function quickSaveMany(photos) {
-  const now = Date.now();
-  for (const p of photos) {
-    const id = uid();
-    const receipt = {
-      id, title: '', amount: null, currency: cur(), date: todayISO(),
-      category: 'altro', note: '', photoIds: [p.id], thumb: p.thumb,
-      favorite: false, warrantyUntil: null, warrantyYears: null,
-      returnUntil: null, returnDays: null, createdAt: now, updatedAt: now,
-    };
-    await DB.saveReceiptWithPhotos(receipt, [{ id: p.id, receiptId: id, blob: p.blob, width: p.width, height: p.height, createdAt: now }]);
+/** Crea il record leggendo quello che si può dalla foto. */
+async function salvaScatto(foto) {
+  let letto = null;
+  try {
+    letto = ocrDisponibile() ? await leggiScontrino(foto[0].blob) : null;
+  } catch (err) {
+    console.warn('lettura non riuscita:', err);
   }
-  await afterChange();
-  toast(`${photos.length} scontrini salvati`, { icon: 'check' });
-  requestPersistence();
+
+  const ora = Date.now();
+  const id = uid();
+  const record = {
+    id,
+    title: letto?.title || '',
+    amount: letto?.amount ?? null,
+    currency: cur(),
+    date: letto?.date || todayISO(),
+    category: letto?.category || 'altro',
+    note: '',
+    photoIds: foto.map((p) => p.id),
+    thumb: foto[0].thumb,
+    favorite: false,
+    warrantyUntil: null, warrantyYears: null,
+    returnUntil: null, returnDays: null,
+    createdAt: ora, updatedAt: ora,
+  };
+
+  await DB.saveReceiptWithPhotos(
+    record,
+    foto.map((p) => ({ id: p.id, receiptId: id, blob: p.blob, width: p.width, height: p.height, createdAt: ora })),
+  );
+  return record;
+}
+
+/** La scheda che compare dopo lo scatto: dice cosa manca e come rimediare. */
+let timerScattato = null;
+function mostraScattato(record) {
+  const box = $('#scattato');
+  if (!box) return;
+  clearTimeout(timerScattato);
+
+  const senzaImporto = record.amount == null;
+  const src = thumbURL(record);
+
+  box.innerHTML = `
+    <span class="scattato__foto">${src ? `<img src="${src}" alt="">` : ''}</span>
+    <span class="scattato__testo">
+      <b>${senzaImporto ? 'Salvato' : esc(fmtMoney(record.amount, cur()))}</b>
+      <small>${esc(record.title || 'Tocca per completare')}</small>
+    </span>
+    ${senzaImporto
+      ? `<button class="scattato__azione" data-importo>${icon('euro')} Importo</button>`
+      : `<button class="scattato__azione" data-dettagli>${icon('edit')} Dettagli</button>`}`;
+  hydrateIcons(box);
+  box.hidden = false;
+  box.classList.remove('is-out');
+
+  $('[data-importo]', box)?.addEventListener('click', () => apriTastierino(record));
+  $('[data-dettagli]', box)?.addEventListener('click', () => openEditor({ receipt: record }));
+  $('.scattato__foto', box)?.addEventListener('click', () => go('detail', { id: record.id }));
+
+  timerScattato = setTimeout(() => {
+    box.classList.add('is-out');
+    setTimeout(() => { box.hidden = true; }, 260);
+  }, 5200);
+}
+
+/**
+ * Tastierino per l'importo: l'unico dato che vale la pena digitare
+ * subito, con tasti grandi da usare con una mano sola.
+ */
+function apriTastierino(record) {
+  let cifre = record.amount != null ? String(Math.round(record.amount * 100)) : '';
+  const valore = () => (cifre ? Number(cifre) / 100 : 0);
+
+  const tasti = ['1','2','3','4','5','6','7','8','9','00','0','canc'];
+  const corpo = `
+    <div class="tastierino">
+      <div class="tastierino__cifra" id="tast-cifra">${esc(fmtMoney(valore(), cur()))}</div>
+      <div class="tastierino__negozio" id="tast-negozio">${esc(record.title || 'Scontrino senza nome')}</div>
+      <div class="tastierino__tasti">
+        ${tasti.map((t) => `<button type="button" data-tasto="${t}">${t === 'canc' ? icon('back') : t}</button>`).join('')}
+      </div>
+    </div>`;
+
+  const chiudi = openSheet({
+    title: 'Quanto hai speso?',
+    body: corpo,
+    footer: '<button class="btn btn--primary btn--block" data-salva>Salva importo</button>',
+    onMount(sheet) {
+      const schermo = $('#tast-cifra', sheet);
+      $('.tastierino__tasti', sheet).addEventListener('click', (e) => {
+        const t = e.target.closest('[data-tasto]');
+        if (!t) return;
+        const tasto = t.dataset.tasto;
+        if (tasto === 'canc') cifre = cifre.slice(0, -1);
+        else if (cifre.length < 9) cifre += tasto;
+        schermo.textContent = fmtMoney(valore(), cur());
+        haptic(6);
+      });
+
+      sheet.querySelector('[data-salva]').addEventListener('click', async () => {
+        const fresco = byId(record.id) || record;
+        fresco.amount = cifre ? valore() : null;
+        fresco.updatedAt = Date.now();
+        await DB.putReceipt(fresco);
+        await afterChange();
+        chiudi();
+        toast('Importo salvato', { icon: 'check' });
+      });
+    },
+  });
+}
+
+/* ── Ingressi alternativi: galleria e fotocamera di sistema ─── */
+
+function scegliDallaGalleria() { $('#input-gallery').click(); }
+function usaFotocameraDiSistema() { $('#input-camera').click(); }
+
+async function handleFiles(files, { fromCamera = false } = {}) {
+  const immagini = [...files].filter((f) => f.type.startsWith('image/'));
+  if (!immagini.length) return;
+
+  const chiudi = toast(immagini.length > 1 ? `Archivio ${immagini.length} foto…` : 'Archivio lo scontrino…',
+    { icon: 'camera', duration: 60000 });
+  try {
+    if (immagini.length > 1 && !fromCamera) {
+      chiudi();
+      openActionSheet(`${immagini.length} foto scelte`, [
+        { icon: 'grid', label: `Sono ${immagini.length} scontrini diversi`, hint: 'Uno per foto, in archivio subito',
+          onClick: () => archiviaFoto(immagini, { unicoScontrino: false }) },
+        { icon: 'receipt', label: 'Sono un unico scontrino', hint: 'Più pagine dello stesso documento',
+          onClick: () => archiviaFoto(immagini) },
+      ]);
+      return;
+    }
+    await archiviaFoto(immagini);
+    chiudi();
+  } catch (err) {
+    console.error(err);
+    chiudi();
+    toastError('Non sono riuscito a leggere la foto. Riprova.');
+  }
 }
 
 /* ── Editor ───────────────────────────────────────────────── */
@@ -1590,18 +1733,22 @@ async function wipeEverything() {
 /* ═══════════════════ Eventi globali ═══════════════════ */
 
 function wireGlobalEvents() {
-  $('#fab').addEventListener('click', startAdd);
-  $('#empty-cta').addEventListener('click', () => $('#input-camera').click());
+  // Scattare è il gesto principale: un pulsante solo, sempre nello stesso posto.
+  $('#fab').addEventListener('click', () => go('camera'));
+  $('#empty-cta').addEventListener('click', () => go('camera'));
+  $('#otturatore').addEventListener('click', scattaEArchivia);
+  $('#cam-galleria').addEventListener('click', scegliDallaGalleria);
+  $('#cam-sistema').addEventListener('click', usaFotocameraDiSistema);
+  $('#cam-sistema-grande').addEventListener('click', usaFotocameraDiSistema);
 
-  $('#tabbar').addEventListener('click', (e) => {
-    const tab = e.target.closest('[data-tab]');
-    if (!tab || tab.dataset.tab === state.view) return;
-    go(tab.dataset.tab);
-  });
+  // L'archivio porta al resto: le impostazioni dall'ingranaggio, le
+  // statistiche dal totale, le scadenze dalla fascia di avviso.
+  $('#btn-settings').addEventListener('click', () => go('settings'));
+  $('#summary').addEventListener('click', () => go('stats'));
+  $('#alertbar').addEventListener('click', () => go('deadlines'));
 
   $$('[data-back]').forEach((b) => b.addEventListener('click', () => history.back()));
 
-  // input foto
   const consume = async (input, fromCamera) => {
     // La copia va fatta prima: azzerare input.value svuota la FileList.
     const files = [...(input.files || [])];
@@ -1627,7 +1774,6 @@ function wireGlobalEvents() {
     if (file) importBackup(file);
   });
 
-  // filtri
   $('#months').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-month]');
     if (!btn) return;
@@ -1647,28 +1793,22 @@ function wireGlobalEvents() {
     if (card) go('detail', { id: card.dataset.id });
   });
 
-  // ricerca
-  const searchbar = $('#searchbar');
+  // La ricerca è sempre lì: è il modo con cui si ritrova uno scontrino.
   const input = $('#search-input');
-  $('#btn-search-toggle').addEventListener('click', () => {
-    const show = searchbar.hidden;
-    searchbar.hidden = !show;
-    $('#btn-search-toggle').classList.toggle('is-on', show);
-    if (show) input.focus();
-    else { input.value = ''; state.filter.query = ''; renderHome(); }
-  });
+  const pulisci = $('#search-clear');
   input.addEventListener('input', debounce(() => {
     state.filter.query = input.value.trim();
+    pulisci.hidden = !state.filter.query;
     renderHome();
   }, 180));
-  $('#search-clear').addEventListener('click', () => {
+  pulisci.addEventListener('click', () => {
     input.value = '';
     state.filter.query = '';
+    pulisci.hidden = true;
     input.focus();
     renderHome();
   });
 
-  // vista e ordinamento
   $('#btn-layout').addEventListener('click', async () => {
     await saveSettings({ layout: state.settings.layout === 'grid' ? 'list' : 'grid' });
     renderHome();
@@ -1681,9 +1821,6 @@ function wireGlobalEvents() {
       onClick: async () => { await saveSettings({ sort: id }); renderHome(); },
     })));
   });
-
-  $('#alertbar').addEventListener('click', () => go('deadlines'));
-  $('#spark').addEventListener('click', () => go('stats'));
 
   $('#deadlines-filter').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-kind]');
@@ -1699,11 +1836,16 @@ function wireGlobalEvents() {
     renderStats();
   });
 
-  // scorciatoie da tastiera (desktop)
   document.addEventListener('keydown', (e) => {
     if (e.target.matches('input, textarea')) return;
-    if (e.key === 'n') startAdd();
-    if (e.key === '/') { e.preventDefault(); $('#btn-search-toggle').click(); }
+    if (e.key === 'n') go('camera');
+    if (e.key === '/') { e.preventDefault(); $('#search-input').focus(); }
+  });
+
+  // Uscendo dall'app la fotocamera va spenta comunque.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && Mirino.acceso()) Mirino.spegni();
+    else if (!document.hidden && state.view === 'camera') apriMirino();
   });
 
   window.addEventListener('beforeinstallprompt', (e) => {

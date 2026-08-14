@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5" />
 <title>Invoice Wallet — i tuoi scontrini al sicuro</title>
-<meta name="description" content="Fotografa i tuoi scontrini e conservali per sempre. Funziona offline, i dati restano sul tuo telefono." />
+<meta name="description" content="Inquadra lo scontrino e tocca: è già salvato. Funziona offline, i dati restano sul tuo telefono." />
 <meta name="theme-color" content="#0c0d11" media="(prefers-color-scheme: dark)" />
 <meta name="theme-color" content="#f7f5f1" media="(prefers-color-scheme: light)" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -18,52 +18,48 @@
 </head>
 <body data-theme="auto">
 
-<!-- ══════════════ SPLASH ══════════════ -->
 <div id="boot" class="boot">
   <div class="boot__mark" aria-hidden="true">
-    <svg viewBox="0 0 48 48" fill="none"><path d="M12 4h24a2 2 0 0 1 2 2v38l-5-3-5 3-5-3-5 3-5-3-5 3V6a2 2 0 0 1 2-2Z" fill="currentColor" opacity=".18"/><path d="M12 4h24a2 2 0 0 1 2 2v38l-5-3-5 3-5-3-5 3-5-3-5 3V6a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M17 15h14M17 22h14M17 29h8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    <svg viewBox="0 0 48 48" fill="none"><path d="M12 4h24a2 2 0 0 1 2 2v38l-5-3-5 3-5-3-5 3-5-3-5 3V6a2 2 0 0 1 2-2Z" fill="currentColor" opacity=".16"/><path d="M12 4h24a2 2 0 0 1 2 2v38l-5-3-5 3-5-3-5 3-5-3-5 3V6a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M17 15h14M17 22h14M17 29h8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
   </div>
   <div class="boot__name">Invoice Wallet</div>
 </div>
 
-<!-- ══════════════ APP ══════════════ -->
 <div id="app" class="app" hidden>
 
-  <!-- ─────── HOME ─────── -->
-  <main id="view-home" class="view" data-view="home">
-    <header class="topbar">
-      <div class="topbar__row">
-        <div class="brand">
-          <span class="brand__mark" aria-hidden="true"></span>
-          <span class="brand__text">
-            <strong>Invoice Wallet</strong>
-            <small id="brand-sub">i tuoi scontrini al sicuro</small>
-          </span>
-        </div>
-        <button class="iconbtn" id="btn-search-toggle" aria-label="Cerca" data-icon="search"></button>
+  <!-- ══════════ ARCHIVIO ══════════ -->
+  <main id="view-home" class="view view--archivio" data-view="home">
+    <header class="arc__top">
+      <div class="arc__titolo">
+        <h1>Archivio</h1>
+        <button class="iconbtn iconbtn--ghost" id="btn-settings" aria-label="Impostazioni" data-icon="settings"></button>
       </div>
 
-      <div class="searchbar" id="searchbar" hidden>
+      <div class="searchbar" id="searchbar">
         <span class="searchbar__icon" data-icon="search"></span>
-        <input type="search" id="search-input" placeholder="Cerca esercente, nota, importo…" autocomplete="off" enterkeyhint="search" />
-        <button class="searchbar__clear" id="search-clear" aria-label="Pulisci" data-icon="close"></button>
+        <input type="search" id="search-input" placeholder="Cerca negozio, importo, nota…" autocomplete="off" enterkeyhint="search" />
+        <button class="searchbar__clear" id="search-clear" aria-label="Pulisci" data-icon="close" hidden></button>
       </div>
-
-      <div class="months" id="months" role="tablist" aria-label="Periodo"></div>
     </header>
 
     <button class="alertbar" id="alertbar" hidden></button>
 
-    <section class="summary" id="summary">
-      <div class="summary__label" id="summary-label">Totale</div>
-      <div class="summary__amount" id="summary-amount">—</div>
-      <div class="summary__meta">
+    <!-- il totale del periodo, con andamento: si tocca per le statistiche -->
+    <button class="totale" id="summary">
+      <span class="totale__testa">
+        <span class="totale__label" id="summary-label">Totale</span>
+        <span class="totale__vai" data-icon="chart"></span>
+      </span>
+      <span class="totale__cifra" id="summary-amount">—</span>
+      <span class="totale__meta">
         <span id="summary-count">0 scontrini</span>
         <span class="dot" aria-hidden="true"></span>
         <span id="summary-avg">media —</span>
-      </div>
-      <button class="spark" id="spark" aria-label="Vai alle statistiche"></button>
-    </section>
+      </span>
+      <span class="spark" id="spark"></span>
+    </button>
+
+    <div class="months" id="months" role="tablist" aria-label="Periodo"></div>
 
     <div class="toolbar">
       <div class="chips" id="category-chips"></div>
@@ -74,7 +70,6 @@
     </div>
 
     <div class="results" id="results-bar" hidden></div>
-
     <section class="feed" id="feed" aria-live="polite"></section>
 
     <div class="empty" id="empty" hidden>
@@ -87,29 +82,46 @@
           <path d="M110 98h16M118 90v16" class="e-plus"/>
         </svg>
       </div>
-      <h2 id="empty-title">Nessuno scontrino, per ora</h2>
-      <p id="empty-text">Scatta la prima foto: resterà salvata sul tuo telefono, anche offline.</p>
-      <button class="btn btn--primary" id="empty-cta"><span data-icon="camera"></span> Fotografa uno scontrino</button>
+      <h2 id="empty-title">L'archivio è vuoto</h2>
+      <p id="empty-text">Inquadra uno scontrino e tocca il cerchio: viene salvato subito, i dettagli si aggiungono dopo.</p>
+      <button class="btn btn--primary" id="empty-cta"><span data-icon="camera"></span> Inquadra il primo</button>
     </div>
   </main>
 
-  <!-- ─────── STATISTICHE ─────── -->
-  <main id="view-stats" class="view" data-view="stats" hidden>
-    <header class="topbar topbar--simple">
-      <div class="topbar__row"><h1 class="title">Statistiche</h1></div>
-      <div class="segmented" id="stats-range">
-        <button data-range="month" class="is-active">Mese</button>
-        <button data-range="year">Anno</button>
-        <button data-range="all">Sempre</button>
-      </div>
+  <!-- ══════════ SCATTA ══════════ -->
+  <main id="view-camera" class="view view--camera" data-view="camera" hidden>
+    <video id="cam-video" playsinline autoplay muted></video>
+
+    <div class="cam__vuoto" id="cam-vuoto" hidden>
+      <span data-icon="camera"></span>
+      <p id="cam-vuoto-testo">Preparo la fotocamera…</p>
+      <button class="btn btn--primary" id="cam-sistema-grande">Usa la fotocamera del telefono</button>
+    </div>
+
+    <div class="cam__guida" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+
+    <header class="cam__testa">
+      <button class="iconbtn cam__chiudi" data-back aria-label="Chiudi" data-icon="close"></button>
+      <p class="cam__suggerimento" id="cam-suggerimento">Inquadra lo scontrino per intero</p>
     </header>
-    <div class="stack" id="stats-body"></div>
+
+    <!-- appare dopo lo scatto: cosa è stato salvato e cosa manca ancora -->
+    <div class="scattato" id="scattato" hidden></div>
+
+    <footer class="cam__barra">
+      <button class="cam__lato" id="cam-galleria" aria-label="Scegli dalla galleria"><span data-icon="image"></span></button>
+      <button class="otturatore" id="otturatore" aria-label="Scatta"><span></span></button>
+      <button class="cam__lato" id="cam-sistema" aria-label="Fotocamera del telefono"><span data-icon="sparkle"></span></button>
+    </footer>
   </main>
 
-  <!-- ─────── SCADENZE ─────── -->
-  <main id="view-deadlines" class="view" data-view="deadlines" hidden>
+  <!-- ══════════ SCADENZE ══════════ -->
+  <main id="view-deadlines" class="view view--sub" data-view="deadlines" hidden>
     <header class="topbar topbar--simple">
-      <div class="topbar__row"><h1 class="title">Scadenze</h1></div>
+      <div class="topbar__row">
+        <button class="iconbtn" data-back aria-label="Indietro" data-icon="back"></button>
+        <h1 class="title">Scadenze</h1>
+      </div>
       <p class="topbar__hint">Fino a quando puoi fare un reso, un cambio o usare la garanzia.</p>
       <div class="segmented" id="deadlines-filter">
         <button data-kind="tutte" class="is-active">Tutte</button>
@@ -120,15 +132,34 @@
     <div class="stack" id="deadlines-body"></div>
   </main>
 
-  <!-- ─────── IMPOSTAZIONI ─────── -->
-  <main id="view-settings" class="view" data-view="settings" hidden>
+  <!-- ══════════ STATISTICHE ══════════ -->
+  <main id="view-stats" class="view view--sub" data-view="stats" hidden>
     <header class="topbar topbar--simple">
-      <div class="topbar__row"><h1 class="title">Impostazioni</h1></div>
+      <div class="topbar__row">
+        <button class="iconbtn" data-back aria-label="Indietro" data-icon="back"></button>
+        <h1 class="title">Statistiche</h1>
+      </div>
+      <div class="segmented" id="stats-range">
+        <button data-range="month" class="is-active">Mese</button>
+        <button data-range="year">Anno</button>
+        <button data-range="all">Sempre</button>
+      </div>
+    </header>
+    <div class="stack" id="stats-body"></div>
+  </main>
+
+  <!-- ══════════ IMPOSTAZIONI ══════════ -->
+  <main id="view-settings" class="view view--sub" data-view="settings" hidden>
+    <header class="topbar topbar--simple">
+      <div class="topbar__row">
+        <button class="iconbtn" data-back aria-label="Indietro" data-icon="back"></button>
+        <h1 class="title">Impostazioni</h1>
+      </div>
     </header>
     <div class="stack" id="settings-body"></div>
   </main>
 
-  <!-- ─────── CESTINO ─────── -->
+  <!-- ══════════ CESTINO ══════════ -->
   <main id="view-trash" class="view view--sub" data-view="trash" hidden>
     <header class="topbar topbar--simple">
       <div class="topbar__row">
@@ -140,27 +171,18 @@
     <div class="stack" id="trash-body"></div>
   </main>
 
-  <!-- ─────── DETTAGLIO ─────── -->
+  <!-- ══════════ DETTAGLIO ══════════ -->
   <main id="view-detail" class="view view--sub view--detail" data-view="detail" hidden>
     <div id="detail-body"></div>
   </main>
 
-  <!-- ─────── NAV ─────── -->
-  <nav class="tabbar" id="tabbar">
-    <button class="tab is-active" data-tab="home"><span data-icon="receipt"></span><em>Scontrini</em></button>
-    <button class="tab" data-tab="deadlines">
-      <span data-icon="clock"></span><em>Scadenze</em>
-      <span class="tabbadge" id="tab-badge" hidden></span>
-    </button>
-    <div class="tabbar__slot" aria-hidden="true"></div>
-    <button class="tab" data-tab="stats"><span data-icon="chart"></span><em>Statistiche</em></button>
-    <button class="tab" data-tab="settings"><span data-icon="settings"></span><em>Impostazioni</em></button>
-  </nav>
-
-  <button class="fab" id="fab" aria-label="Aggiungi scontrino"><span data-icon="plus"></span></button>
+  <!-- un solo pulsante, sempre lì: scattare è il gesto principale -->
+  <button class="scatta" id="fab" aria-label="Scatta uno scontrino">
+    <span data-icon="camera"></span>
+    <em>Scatta</em>
+  </button>
 </div>
 
-<!-- ══════════════ OVERLAY LAYERS ══════════════ -->
 <div id="sheet-root"></div>
 <div id="viewer-root"></div>
 <div id="toast-root" class="toasts" aria-live="polite"></div>
@@ -168,7 +190,7 @@
 
 <input type="file" id="input-camera" accept="image/*" capture="environment" hidden />
 <input type="file" id="input-gallery" accept="image/*" multiple hidden />
-<input type="file" id="input-restore" accept="application/json,.json" hidden />
+<input type="file" id="input-restore" accept="application/zip,.zip" hidden />
 
 <script src="assets/js/icons.js"></script>
 <script src="assets/js/util.js"></script>
@@ -177,6 +199,7 @@
 <script src="assets/js/zip.js"></script>
 <script src="assets/js/ocr.js"></script>
 <script src="assets/js/ui.js"></script>
+<script src="assets/js/camera.js"></script>
 <script src="assets/js/app.js"></script>
 </body>
 </html>

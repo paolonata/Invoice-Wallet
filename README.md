@@ -1,8 +1,8 @@
 # Invoice Wallet 🧾
 
 App per **fotografare gli scontrini e non perderli mai più**.
-Scatti la foto, la ritrovi per sempre: niente account, niente abbonamenti, niente server.
-Nessun riconoscimento del testo — l'app salva la foto e i quattro dati che servono davvero.
+Inquadri, tocchi, è già in archivio: niente moduli, niente account, niente abbonamenti,
+niente server. Le foto non lasciano mai il telefono.
 
 <p align="center">
   <img src="icons/icon-192.png" width="96" alt="Icona Invoice Wallet">
@@ -10,21 +10,41 @@ Nessun riconoscimento del testo — l'app salva la foto e i quattro dati che ser
 
 ---
 
-## Cosa sa fare
+## Due schermate, e basta
+
+L'app ha **un mirino** e **un archivio**. Tutto il resto si apre da lì, quando serve.
+
+**Scatta.** Il pulsante nero in basso è sempre a portata di pollice e apre il mirino
+vero e proprio, dentro l'app: niente passaggio dalla fotocamera di sistema, niente
+schermata di conferma. Tocchi l'otturatore e **lo scontrino è già salvato** — la
+lettura automatica gli mette negozio, importo, data e categoria mentre tu sei ancora
+lì che inquadri il prossimo. Una scheda in basso ti dice cos'ha capito e offre due
+scorciatoie: **Importo** (un tastierino grande, quattro tocchi e via) e **Dettagli**.
+Se non tocchi niente, va bene lo stesso: è comunque in archivio.
+
+**Archivio.** Il totale del periodo in grande, con quanto è cambiato rispetto al mese
+scorso e l'andamento degli ultimi sei; sotto, gli scontrini a estratto conto o a
+griglia. La ricerca è sempre lì, non nascosta dietro una lente. Quando qualcosa sta
+per scadere, una fascia rossa in cima lo dice e porta alle scadenze.
 
 | | |
 |---|---|
-| 📸 **Scatta e salva** | Foto dalla fotocamera o dalla galleria, anche più pagine per lo stesso scontrino |
+| 📸 **Mirino integrato** | Inquadri e tocchi: salvato. Più scatti di fila senza mai uscire |
+| ✨ **Compila da sola** | Nell'app Android legge negozio, totale, data e categoria dallo scatto |
+| 🔢 **Tastierino** | L'importo, quando la lettura non basta, in quattro tocchi |
 | 🗂️ **Ordine automatico** | Raggruppati per mese, con il totale speso sempre in cima |
-| 🔎 **Ritrova tutto** | Ricerca per negozio, nota, importo o data + filtri per categoria e preferiti |
-| 📊 **Statistiche** | Quanto spendi al mese, dove vanno i soldi, lo scontrino più caro |
-| ✨ **Compila da sola** | Nell'app Android legge lo scontrino e riempie totale, data e negozio |
-| ⏳ **Scadenze resi e cambi** | Una scheda dedicata ti dice quanti giorni restano per restituire o cambiare |
+| 🔎 **Ritrova tutto** | Ricerca sempre visibile per negozio, nota, importo o data |
+| 📊 **Statistiche** | Si aprono toccando il totale: dove vanno i soldi, lo scontrino più caro |
+| ⏳ **Scadenze resi e cambi** | Quanti giorni restano per restituire o cambiare, con avviso in cima |
 | 🛡️ **Cestino di sicurezza** | Quello che elimini resta recuperabile per 30 giorni |
 | 💾 **Backup completo** | Un file `.zip` con tutte le foto + un `.csv` apribile con Excel |
 | 📴 **Funziona offline** | Installala sul telefono: si apre come una vera app, anche in aereo |
 | 🌗 **Tema chiaro e scuro** | Segue il telefono, oppure lo scegli tu |
 | 🔒 **Privacy totale** | Le foto non lasciano mai il dispositivo |
+
+Dal mirino restano raggiungibili la **galleria** (per gli scontrini già fotografati:
+se ne scegli più d'uno l'app chiede se sono scontrini diversi o pagine dello stesso)
+e la **fotocamera di sistema**, per quando serve la sua messa a fuoco.
 
 ## L'app Android (APK)
 
@@ -62,11 +82,12 @@ scontrini da recuperare dal backup `.zip`.
 
 ### Lettura automatica dello scontrino
 
-Nell'app Android, appena scatti la foto il testo viene riconosciuto **sul telefono**
-(ML Kit, senza rete e senza account) e l'app compila da sola **totale, data e
-negozio**, indovinando anche la categoria per le catene più diffuse. I campi
-restano tutti modificabili: quello che scrivi tu non viene mai sovrascritto, e
-c'è un pulsante *Compila leggendo la foto* per riprovare se lo scatto era storto.
+Nell'app Android, nell'istante in cui tocchi l'otturatore il testo viene riconosciuto
+**sul telefono** (ML Kit, senza rete e senza account) e lo scontrino nasce già con
+**totale, data e negozio** compilati, categoria indovinata per le catene più diffuse.
+È questa la ragione per cui non c'è più un modulo da riempire. I campi restano tutti
+modificabili dal dettaglio: quello che scrivi tu non viene mai sovrascritto, e c'è un
+pulsante *Compila leggendo la foto* per riprovare se lo scatto era storto.
 
 Il riconoscimento non tocca ancora le singole voci della spesa: per ora legge le
 tre cose che si digitano ogni volta. La parte che interpreta il testo è in
@@ -78,17 +99,19 @@ Nella versione web questa parte non c'è: il riconoscimento arriva da Android.
 
 ### Scadenze per resi e cambi
 
-Quando salvi uno scontrino puoi attivare **Reso o cambio entro** (scorciatoie da 8,
-14, 30 o 60 giorni) e **Garanzia** (1, 2, 3 o 5 anni). La scheda **Scadenze** raccoglie
+Dal dettaglio di uno scontrino puoi attivare **Reso o cambio entro** (scorciatoie da 8,
+14, 30 o 60 giorni) e **Garanzia** (1, 2, 3 o 5 anni). La schermata **Scadenze** raccoglie
 tutto in ordine di urgenza — scaduti, oggi e domani, entro una settimana, entro un mese —
-con un pallino rosso sulla scheda e una fascia in cima alla home quando mancano
+e si apre dalla fascia rossa che compare in cima all'archivio quando qualcosa scade fra
 tre giorni o meno. Nessuna notifica di sistema: gli avvisi vivono dentro l'app.
+Se cambi la data dello scontrino, le scadenze si ricalcolano da sole sulla nuova data.
 
 ## Come si usa
 
 1. Apri l'app nel browser del telefono.
 2. **Installala**: su Android il browser propone «Aggiungi a schermata Home»; su iPhone tocca *Condividi → Aggiungi a Home*.
-3. Tocca **➕**, scatta la foto dello scontrino, scrivi importo e negozio (o lascia vuoto), **Salva**.
+3. Tocca **Scatta**, inquadra lo scontrino, tocca l'otturatore. Fatto: è salvato.
+   Se l'importo non è stato letto, il tastierino è un tocco più in là.
 4. Ogni tanto: *Impostazioni → Esporta backup*, e salva lo `.zip` dove vuoi.
 
 > **Il backup è l'unica vera assicurazione.** I dati stanno solo sul dispositivo: se perdi
@@ -114,7 +137,7 @@ Nel repo c'è già un workflow che pubblica su GitHub Pages a ogni push su `main
 Nessun framework, nessuna dipendenza, nessun passaggio di build: HTML, CSS e JavaScript e basta.
 
 ```
-index.html               struttura delle schermate
+index.html               le due schermate (mirino e archivio) e ciò che ci si apre sopra
 manifest.webmanifest     dati per l'installazione come app
 sw.js                    service worker: funziona offline
 assets/css/styles.css    tutto lo stile (temi chiaro/scuro compresi)
@@ -122,6 +145,7 @@ assets/js/
   icons.js               icone SVG inline
   util.js                formattazione euro/date, categorie
   db.js                  archivio IndexedDB (scontrini, foto, impostazioni)
+  camera.js              il mirino: accende, spegne, scatta
   media.js               ridimensiona e comprime le foto, miniature
   zip.js                 lettura e scrittura ZIP per i backup
   ocr.js                 dal testo dello scontrino a totale, data e negozio
@@ -156,6 +180,14 @@ sopra la pagina — foto ingrandita, schede, conferme — e solo dopo torna alla
 schermata precedente: `MainActivity` interroga `window.chiudiSovrapposizione()`
 prima di gestire il tasto, e nel browser la stessa pila è collegata alla
 cronologia.
+
+**Il mirino dentro l'app.** `assets/js/camera.js` chiede `getUserMedia` con la
+fotocamera posteriore alla risoluzione più alta che il telefono concede, e lo scatto
+è un `drawImage` del fotogramma su canvas. Funziona anche dentro l'APK perché la
+WebView serve i file da `https://appassets.androidplatform.net` (origine sicura) e
+`MainActivity` risponde a `onPermissionRequest` concedendo la videocamera dopo aver
+chiesto ad Android il permesso `CAMERA`. Se il permesso viene negato, il mirino non
+si accende e resta il pulsante che passa alla fotocamera di sistema.
 
 **Perché nell'app non c'è il service worker.** Nella versione web serve a far
 funzionare l'app offline. Dentro l'APK i file sono già nel pacchetto: una copia
