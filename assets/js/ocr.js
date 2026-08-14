@@ -30,6 +30,8 @@ const OCR_BRANDS = [
   { re: /\bgigante\b/i,               name: 'Il Gigante',   cat: 'spesa' },
   { re: /\bfarmacia\b|parafarmacia/i, name: 'Farmacia',     cat: 'salute' },
   { re: /decathlon/i,                 name: 'Decathlon',    cat: 'shopping' },
+  { re: /corte\s*ingl[eé]s/i,         name: 'El Corte Inglés', cat: 'shopping' },
+  { re: /primark|bershka|stradivarius|pull\s*&\s*bear/i, name: null, cat: 'shopping' },
   { re: /\bzara\b|h\s?&\s?m|\bovs\b/i, name: null,          cat: 'shopping' },
   { re: /\bikea\b/i,                  name: 'IKEA',         cat: 'casa' },
   { re: /leroy\s*merlin|obi\b|bricocenter/i, name: null,    cat: 'casa' },
@@ -75,29 +77,89 @@ function findAmounts(line) {
 
 /* ── Data ────────────────────────────────────────────────────── */
 
+/*
+ * Mesi in lettere: italiano, spagnolo e inglese. Gli scontrini stampano
+ * spesso "03/mag/26" invece di "03/05/26", e il riconoscimento sbaglia
+ * volentieri una lettera ("may" letto "nay", "mar" letto "rnar").
+ */
+const MESI_TESTO = [
+  ['gen', 'ene', 'jan'],
+  ['feb'],
+  ['mar', 'mrz'],
+  ['apr', 'abr'],
+  ['mag', 'may'],
+  ['giu', 'jun'],
+  ['lug', 'jul'],
+  ['ago', 'aug'],
+  ['set', 'sep'],
+  ['ott', 'oct'],
+  ['nov'],
+  ['dic', 'dez', 'dec'],
+];
+
+/** Distanza di una sola lettera: tollera l'errore tipico del riconoscimento. */
+function quasiUguale(a, b) {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  let diverse = 0;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i] && ++diverse > 1) return false;
+  return diverse === 1;
+}
+
+/** Da "mag", "may", "nay", "maggio" al numero del mese (1-12). */
+function meseDaTesto(token) {
+  const pulito = String(token).toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/rn/g, 'm')          // "rn" letto al posto di "m"
+    .replace(/[^a-z]/g, '')
+    .slice(0, 3);
+  if (pulito.length < 3) return null;
+
+  for (let i = 0; i < MESI_TESTO.length; i++) {
+    if (MESI_TESTO[i].includes(pulito)) return i + 1;
+  }
+  // Nessuna corrispondenza esatta: accetto una lettera sbagliata.
+  for (let i = 0; i < MESI_TESTO.length; i++) {
+    if (MESI_TESTO[i].some((m) => quasiUguale(pulito, m))) return i + 1;
+  }
+  return null;
+}
+
 function findDate(lines) {
   const oggi = new Date();
   const domani = new Date(oggi.getTime() + 86400000);
   const limite = new Date(oggi.getFullYear() - 10, 0, 1);
   const candidate = [];
 
+  const considera = (line, i, giorno, mese, annoGrezzo) => {
+    const anno = String(annoGrezzo).length === 2 ? 2000 + Number(annoGrezzo) : Number(annoGrezzo);
+    if (!mese || mese < 1 || mese > 12 || giorno < 1 || giorno > 31) return;
+    const d = new Date(anno, mese - 1, giorno);
+    if (d > domani || d < limite) return;
+    if (d.getMonth() !== mese - 1 || d.getDate() !== giorno) return; // es. 31/02
+    candidate.push({
+      iso: `${anno}-${String(mese).padStart(2, '0')}-${String(giorno).padStart(2, '0')}`,
+      // La riga che dice "data" o che porta anche l'ora è quella buona;
+      // il mese scritto a lettere è difficile da confondere, quindi vale di più.
+      punteggio: (/\bdata\b|\bfecha\b/i.test(line) ? 10 : 0)
+        + (/\d{1,2}[:.]\d{2}/.test(line) ? 5 : 0)
+        - i * 0.01,
+    });
+  };
+
   lines.forEach((line, i) => {
-    const re = /(?<!\d)(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})(?!\d)/g;
+    // 12/05/2026, 12-05-26, 12.05.2026
+    const numerica = /(?<!\d)(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})(?!\d)/g;
     let m;
-    while ((m = re.exec(line)) !== null) {
-      let [, g, mm, a] = m;
-      const anno = a.length === 2 ? 2000 + Number(a) : Number(a);
-      const mese = Number(mm);
-      const giorno = Number(g);
-      if (mese < 1 || mese > 12 || giorno < 1 || giorno > 31) continue;
-      const d = new Date(anno, mese - 1, giorno);
-      if (d > domani || d < limite) continue;
-      if (d.getMonth() !== mese - 1 || d.getDate() !== giorno) continue; // es. 31/02
-      candidate.push({
-        iso: `${anno}-${String(mese).padStart(2, '0')}-${String(giorno).padStart(2, '0')}`,
-        // La riga che dice "DATA" o che porta anche l'ora è quella buona.
-        punteggio: (/\bdata\b/i.test(line) ? 10 : 0) + (/\d{1,2}[:.]\d{2}/.test(line) ? 5 : 0) - i * 0.01,
-      });
+    while ((m = numerica.exec(line)) !== null) {
+      considera(line, i, Number(m[1]), Number(m[2]), m[3]);
+    }
+
+    // 03/mag/26, 12 maggio 2026, 3-may-2026
+    const testuale = /(?<!\d)(\d{1,2})\s*[\/\-. ]\s*([A-Za-zÀ-ù]{3,10})\.?\s*[\/\-. ]\s*(\d{2,4})(?!\d)/g;
+    while ((m = testuale.exec(line)) !== null) {
+      const mese = meseDaTesto(m[2]);
+      if (mese) considera(line, i, Number(m[1]), mese, m[3]);
     }
   });
 

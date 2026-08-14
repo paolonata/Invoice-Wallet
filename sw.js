@@ -1,7 +1,7 @@
 /* Service worker: l'app resta utilizzabile anche senza rete.
    Le foto NON passano da qui: vivono in IndexedDB. */
 
-const CACHE = 'invoice-wallet-v3';
+const CACHE = 'invoice-wallet-v4';
 
 const SHELL = [
   './',

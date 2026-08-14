@@ -106,6 +106,34 @@ ${dataRecente}`,
     atteso: { amount: 7.90, date: isoRecente, title: 'Farmacia', category: 'salute' },
   },
   {
+    // Caso vero, dal telefono: mese scritto a lettere e "may" letto "nay".
+    nome: 'El Corte Ingles: mese a lettere, letto storto, senza prezzo',
+    testo: `el Corte Ingles
+EL CORTE INGLES, S. A.
+N.I.F. A-28017895 / Dom. Soc. Hermosilla, 112, 28009 - Madrid
+EL BERCIAL - GETAFE
+AVDA. DEL COMANDANTE JOSE MANUEL RIPOLLES,2
+TIQUE REGALO
+Vendedor T.T EmpCent Operac. Fecha Hora EdP12n T
+60862802  3 0010810 00712007 03/nay/26 12:47 010047 00
+CODIGO DE CONTROL: 9015586277
+Descripcion                          Cantidad
+PULSERA BOY ACABA OR                     1 ud
+Dpto: 0435 Codigo:   8433236482548
+GRACIAS POR SU VISITA
+Nuevo telefono Atencion al Cliente
+900 363 900`,
+    atteso: { amount: null, date: '2026-05-03', title: 'El Corte Inglés', category: 'shopping' },
+  },
+  {
+    nome: 'Data italiana con mese a lettere',
+    testo: `LIBRERIA FELTRINELLI
+ROMANZO                  18,00
+TOTALE                   18,00
+12 mag 2026  17:30`,
+    atteso: { amount: 18.00, date: '2026-05-12' },
+  },
+  {
     nome: 'Testo illeggibile: meglio non inventare',
     testo: `#### ???? ####
 ~~~~~~~~~~~~

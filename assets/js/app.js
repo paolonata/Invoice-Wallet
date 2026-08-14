@@ -3,7 +3,7 @@
    Tutto gira nel browser: nessun account, nessun server.
    ══════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 
 const DEFAULT_SETTINGS = {
   theme: 'auto',        // auto | light | dark
@@ -906,8 +906,8 @@ async function openEditor({ receipt = null, photos = null, suggerimenti = null }
     returnUntil: receipt?.returnUntil || null,
     // Scorciatoia scelta (es. 30 giorni, 2 anni): serve a ricalcolare la
     // scadenza quando cambia la data dello scontrino.
-    returnDays: receipt?.returnDays ?? null,
-    warrantyYears: receipt?.warrantyYears ?? null,
+    returnDays: receipt?.returnDays ?? presetDaDate(receipt?.date, receipt?.returnUntil, 'days'),
+    warrantyYears: receipt?.warrantyYears ?? presetDaDate(receipt?.date, receipt?.warrantyUntil, 'years'),
   };
 
   const compilati = [
@@ -1111,11 +1111,15 @@ async function openEditor({ receipt = null, photos = null, suggerimenti = null }
 
       // Cambio la data dello scontrino: le scadenze basate su una scorciatoia
       // si ricalcolano da sola, quelle scritte a mano restano dove sono.
-      $('#f-date', sheet).addEventListener('change', () => {
+      const allineaScadenze = (avvisa) => {
         const spostate = deadlines.filter((d) => d.preset != null && d.sw.classList.contains('is-on'));
         spostate.forEach((d) => d.applyPreset(d.preset));
-        if (spostate.length) toast('Scadenze aggiornate alla nuova data', { icon: 'clock', duration: 2600 });
-      });
+        if (avvisa && spostate.length) toast('Scadenze aggiornate alla nuova data', { icon: 'clock', duration: 2600 });
+      };
+      // Il selettore di data di Android non manda sempre gli stessi eventi:
+      // stiamo in ascolto su entrambi.
+      $('#f-date', sheet).addEventListener('change', () => allineaScadenze(true));
+      $('#f-date', sheet).addEventListener('input', () => allineaScadenze(false));
 
       const retSw = ret.sw;
       const warSw = war.sw;
@@ -1156,6 +1160,22 @@ async function openEditor({ receipt = null, photos = null, suggerimenti = null }
 
       sheet.querySelector('[data-cancel]').addEventListener('click', () => close());
 
+      /*
+       * Al salvataggio la scadenza viene ricalcolata dalla data dello scontrino:
+       * se è nata da una scorciatoia, non può restare indietro qualunque sia
+       * l'ordine in cui hai toccato i campi. Una data scritta a mano resta com'è.
+       */
+      const scadenzaDefinitiva = (stato, inputId, unit) => {
+        if (!stato.sw.classList.contains('is-on')) return null;
+        const dataScontrino = $('#f-date', sheet).value || todayISO();
+        if (stato.preset != null) {
+          return unit === 'days'
+            ? shiftDays(dataScontrino, stato.preset)
+            : shiftYears(dataScontrino, stato.preset);
+        }
+        return $(inputId, sheet).value || null;
+      };
+
       sheet.querySelector('[data-save]').addEventListener('click', async (e) => {
         if (!working.length) { toastError('Serve almeno una foto.'); return; }
         const stop = withBusy(e.currentTarget, 'Salvo…');
@@ -1170,9 +1190,9 @@ async function openEditor({ receipt = null, photos = null, suggerimenti = null }
               category: draft.category,
               note: $('#f-note', sheet).value.trim(),
               favorite: draft.favorite,
-              warrantyUntil: warSw.classList.contains('is-on') ? ($('#f-warranty', sheet).value || null) : null,
+              warrantyUntil: scadenzaDefinitiva(war, '#f-warranty', 'years'),
               warrantyYears: warSw.classList.contains('is-on') ? war.preset : null,
-              returnUntil: retSw.classList.contains('is-on') ? ($('#f-return', sheet).value || null) : null,
+              returnUntil: scadenzaDefinitiva(ret, '#f-return', 'days'),
               returnDays: retSw.classList.contains('is-on') ? ret.preset : null,
             },
           });
@@ -1189,6 +1209,18 @@ async function openEditor({ receipt = null, photos = null, suggerimenti = null }
     },
     onClose() { pendingEditorAdd = null; },
   });
+}
+
+/**
+ * Scontrini salvati prima che l'app memorizzasse la scorciatoia: se la
+ * distanza fra data e scadenza combacia con una delle scelte rapide, la
+ * trattiamo come tale, così anche loro seguono le correzioni di data.
+ */
+function presetDaDate(dal, al, unit) {
+  if (!dal || !al) return null;
+  const valori = unit === 'days' ? [8, 14, 30, 60] : [1, 2, 3, 5];
+  const calcola = (v) => (unit === 'days' ? shiftDays(dal, v) : shiftYears(dal, v));
+  return valori.find((v) => calcola(v) === al) ?? null;
 }
 
 /** Se valorizzata, le prossime foto scelte vanno nell'editor già aperto. */

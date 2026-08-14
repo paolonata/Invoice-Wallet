@@ -121,6 +121,43 @@ if (manuale !== '2027-01-15') { console.log('   ✗ la data scritta a mano è st
 await page.click('[data-cancel]');
 await page.waitForTimeout(300);
 
+// (dal dettaglio si torna alla home, dove c'è il pulsante di aggiunta)
+await page.goBack();
+await page.waitForTimeout(600);
+
+// ── 5. il caso dal telefono: scadenza scelta PRIMA di correggere la data ──
+// (la lettura automatica non trova la data, resta oggi; imposti il reso a 30
+//  giorni; poi correggi la data all'acquisto vero)
+await page.click('#fab');
+await page.waitForTimeout(300);
+await page.click('.action:has-text("Scatta una foto")');
+await page.waitForTimeout(200);
+await page.setInputFiles('#input-camera', [{ name: 'f2.jpg', mimeType: 'image/jpeg', buffer: await foto() }]);
+await page.waitForTimeout(1300);
+
+await page.fill('#f-title', 'El Corte Ingles');
+await page.click('#f-ret-row');                        // reso attivo, oggi + 30
+await page.waitForTimeout(200);
+await page.click('#f-ret-quick button[data-days="30"]');
+const scadenzaPrima = await page.inputValue('#f-return');
+
+const dataAcquisto = '2026-07-18';                     // corretta dopo
+await page.fill('#f-date', dataAcquisto);
+await page.dispatchEvent('#f-date', 'change');
+await page.waitForTimeout(300);
+await page.click('[data-save]');
+await page.waitForTimeout(900);
+
+const salvato2 = await page.evaluate(() => {
+  const r = state.receipts.find((x) => x.title === 'El Corte Ingles');
+  return { date: r.date, returnUntil: r.returnUntil, returnDays: r.returnDays };
+});
+console.log(`5) scadenza prima ${scadenzaPrima} → dopo la correzione ${salvato2.returnUntil} (data ${salvato2.date})`);
+if (salvato2.returnUntil !== '2026-08-17') {
+  console.log(`   ✗ atteso 2026-08-17 (18 luglio + 30 giorni), trovato ${salvato2.returnUntil}`);
+  ok = false;
+}
+
 console.log(errors.length ? `ERRORI JS:\n${errors.join('\n')}` : 'Nessun errore JS');
 console.log(ok ? '\n✅ TUTTI I CONTROLLI PASSATI' : '\n❌ QUALCOSA NON TORNA');
 
