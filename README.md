@@ -133,6 +133,12 @@ android/                 contenitore Android: WebView + ponte per salvare i file
 .github/workflows/       pages.yml (sito) e android.yml (APK + Release)
 ```
 
+**Perché nell'app non c'è il service worker.** Nella versione web serve a far
+funzionare l'app offline. Dentro l'APK i file sono già nel pacchetto: una copia
+in cache non aggiungerebbe nulla e continuerebbe a servire la versione
+precedente dopo un aggiornamento. Per questo `sw.js`, quando riconosce di girare
+dentro l'app, svuota le cache e cancella la propria registrazione.
+
 **Come sono conservati i dati.** Ogni scontrino è un record in IndexedDB con la miniatura;
 le foto a piena risoluzione stanno in un archivio separato, così la lista scorre veloce
 anche con migliaia di scontrini. Le immagini vengono ridimensionate (lato lungo max 1800 px

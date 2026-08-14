@@ -1,7 +1,18 @@
-/* Service worker: l'app resta utilizzabile anche senza rete.
-   Le foto NON passano da qui: vivono in IndexedDB. */
+/* ══════════════════════════════════════════════════════════════
+   Service worker.
 
-const CACHE = 'invoice-wallet-v4';
+   Nella versione web tiene l'app utilizzabile senza rete.
+   Dentro l'app Android invece è dannoso: i file stanno già nell'APK, e una
+   copia in cache continuerebbe a servire la versione precedente dopo un
+   aggiornamento. Lì il service worker si toglie di mezzo da solo.
+
+   Le foto non passano mai da qui: vivono in IndexedDB.
+   ══════════════════════════════════════════════════════════════ */
+
+// Dentro l'APK la pagina è servita da questo dominio finto.
+const DENTRO_APP_ANDROID = self.location.hostname === 'appassets.androidplatform.net';
+
+const CACHE = 'invoice-wallet-v5';
 
 const SHELL = [
   './',
@@ -21,6 +32,25 @@ const SHELL = [
   'icons/icon-512.png',
   'icons/apple-touch-icon.png',
 ];
+
+if (DENTRO_APP_ANDROID) {
+  /*
+   * Pulizia e ritiro: svuoto le cache, cancello la registrazione e ricarico
+   * la pagina, che da quel momento legge i file veri dentro l'APK. Così un
+   * aggiornamento dell'app è attivo subito, senza riaperture a vuoto.
+   */
+  self.addEventListener('install', () => self.skipWaiting());
+
+  self.addEventListener('activate', (event) => {
+    event.waitUntil((async () => {
+      for (const chiave of await caches.keys()) await caches.delete(chiave);
+      await self.registration.unregister();
+      for (const finestra of await self.clients.matchAll({ type: 'window' })) {
+        finestra.navigate(finestra.url);
+      }
+    })());
+  });
+} else {
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -79,3 +109,5 @@ self.addEventListener('fetch', (event) => {
     }),
   );
 });
+
+}

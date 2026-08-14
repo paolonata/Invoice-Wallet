@@ -3,7 +3,7 @@
    Tutto gira nel browser: nessun account, nessun server.
    ══════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.1.2';
 
 const DEFAULT_SETTINGS = {
   theme: 'auto',        // auto | light | dark
@@ -1635,6 +1635,20 @@ async function promptInstall() {
 
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
+
+  if (isAndroidApp) {
+    /*
+     * Nell'app i file arrivano dall'APK: una cache non aggiunge nulla e
+     * rischia di servire la versione precedente dopo un aggiornamento.
+     * Rimuovo anche quello che hanno lasciato le versioni vecchie.
+     */
+    navigator.serviceWorker.getRegistrations?.()
+      .then((registrazioni) => registrazioni.forEach((r) => r.unregister()))
+      .catch(() => {});
+    caches?.keys?.().then((chiavi) => chiavi.forEach((k) => caches.delete(k))).catch(() => {});
+    return;
+  }
+
   navigator.serviceWorker.register('sw.js').then((reg) => {
     reg.addEventListener('updatefound', () => {
       const sw = reg.installing;

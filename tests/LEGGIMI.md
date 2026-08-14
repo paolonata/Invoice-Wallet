@@ -10,6 +10,7 @@ node tests/ocr.mjs            # interpretazione degli scontrini (niente browser,
 node tests/app.mjs            # giro completo: foto, ricerca, backup, ripristino, cestino
 node tests/scadenze.mjs       # regressione: le scadenze seguono la data dello scontrino
 node tests/ocr-flusso.mjs     # lettura automatica, con un finto ponte Android
+node tests/service-worker.mjs # offline nel browser, nessuna cache dentro l'app
 ```
 
 Ognuno avvia da sé un server statico sulla cartella del progetto, quindi non
