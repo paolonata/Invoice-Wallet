@@ -3,7 +3,7 @@
    Tutto gira nel browser: nessun account, nessun server.
    ══════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = '2.1.0';
+const APP_VERSION = '2.1.1';
 
 const DEFAULT_SETTINGS = {
   theme: 'auto',        // auto | light | dark
@@ -181,6 +181,9 @@ function renderHome() {
   renderChips();
   renderSummary();
   renderFeed();
+  // La testata cambia altezza col contenuto (mesi, ricerca aperta):
+  // rimisurarla qui evita che `--head-h` resti indietro.
+  misuraTestata?.();
 }
 
 function renderMonths() {
@@ -1632,6 +1635,8 @@ async function wipeEverything() {
  * L'altezza della parte appiccicata finisce in `--head-h`, così le
  * intestazioni dei mesi si fermano lì sotto invece di infilarsi dietro.
  */
+let misuraTestata = null;
+
 function wireTestataRitratta() {
   const stick = $('#topbar-stick');
   let inCoda = false;
@@ -1640,12 +1645,23 @@ function wireTestataRitratta() {
   const misura = () => {
     inCoda = false;
     const r = stick.getBoundingClientRect();
-    const ora = r.top <= 1;
+    // Si ferma sotto la barra di stato, non sotto il bordo dello schermo:
+    // la soglia è quella, non zero.
+    const soglia = parseFloat(getComputedStyle(stick).top) || 0;
+    /*
+     * `scrollY > 0` non è una rifinitura ma la garanzia: se non hai
+     * scorrito non c'è niente da coprire, e senza questa condizione una
+     * misura presa mentre la pagina non è ancora disposta (top = 0)
+     * accendeva la striscia sopra la barra, che si mangiava proprio
+     * l'intestazione della home.
+     */
+    const ora = window.scrollY > 0 && r.top <= soglia + 1;
     if (ora !== attaccata) {
       attaccata = ora;
       stick.classList.toggle('is-stuck', ora);
     }
-    document.documentElement.style.setProperty('--head-h', `${Math.round(r.height)}px`);
+    // Le intestazioni dei mesi si fermano sotto: conta anche la barra di stato.
+    document.documentElement.style.setProperty('--head-h', `${Math.round(soglia + r.height)}px`);
   };
   const aggiorna = () => {
     if (inCoda) return;
@@ -1655,6 +1671,7 @@ function wireTestataRitratta() {
 
   window.addEventListener('scroll', aggiorna, { passive: true });
   window.addEventListener('resize', aggiorna);
+  misuraTestata = aggiorna;
   misura();
 }
 

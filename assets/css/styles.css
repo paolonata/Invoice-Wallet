@@ -184,20 +184,30 @@ svg { width: 100%; height: 100%; display: block; }
  * Costano una quarantina di pixel e risparmiano di risalire ogni volta.
  */
 .topbar__stick {
-  position: sticky; top: 0; z-index: 20;
+  position: sticky; top: var(--safe-t); z-index: 20;
   background: var(--bg); display: grid; gap: 12px;
   padding: 0 var(--pad); margin-top: 14px;
   transition: box-shadow .22s var(--ease);
 }
 .topbar__stick.is-stuck { box-shadow: 0 6px 12px -10px rgba(0,0,0,.45); }
-/* copre la striscia sopra (barra di stato): senza, si intravede
-   l'elenco che scorre dietro la testata */
+/*
+ * Quando è appiccicata, questa striscia copre lo spazio sopra (barra di
+ * stato compresa): senza, si intravede l'elenco che le scorre dietro.
+ * Solo da appiccicata, però — ferma coprirebbe il marchio, che sta lì.
+ */
 .topbar__stick::before {
   content: ""; position: absolute; left: 0; right: 0; bottom: 100%;
-  height: calc(var(--safe-t) + 14px); background: var(--bg);
+  height: calc(var(--safe-t) + 16px); background: var(--bg);
+  opacity: 0; pointer-events: none; transition: opacity .12s var(--ease);
 }
-.topbar__strip { display: flex; align-items: flex-end; gap: 10px; }
-.topbar__strip .months { flex: 1; min-width: 0; margin-right: 0; }
+.topbar__stick.is-stuck::before { opacity: 1; }
+/* la linea di base corre sotto tutta la striscia, mesi e lente insieme */
+.topbar__strip {
+  display: flex; align-items: flex-end; gap: 10px;
+  border-bottom: 1px solid var(--line-soft);
+  margin: 0 calc(var(--pad) * -1); padding: 0 var(--pad);
+}
+.topbar__strip .months { flex: 1; min-width: 0; margin: 0; border-bottom: 0; }
 .topbar__strip .iconbtn { margin-bottom: 6px; }
 .topbar__row { display: flex; align-items: center; gap: 10px; min-height: 40px; }
 .topbar__hint { padding: 0 2px; color: var(--ink-3); font-size: 13.5px; line-height: 1.5; }

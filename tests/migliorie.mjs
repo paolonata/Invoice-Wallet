@@ -36,7 +36,7 @@ let ok = true;
 const controlla = (c, m) => { if (!c) { ok = false; console.log('   ✗ ' + m); } };
 const scatto = (n) => page.screenshot({ path: `${SHOTS}/${n}.png` });
 
-const crea = (d) => page.evaluate(async (d) => {
+const creaSu = (pg, d) => pg.evaluate(async (d) => {
   const c = document.createElement('canvas');
   c.width = 700; c.height = 1000;
   const x = c.getContext('2d');
@@ -56,6 +56,7 @@ const crea = (d) => page.evaluate(async (d) => {
   }, [{ id: pid, receiptId: id, blob, width: 700, height: 1000, createdAt: ora }]);
   await afterChange();
 }, d);
+const crea = (d) => creaSu(page, d);
 
 // Archivio su due mesi, con un buco d'importo.
 await crea({ title: 'Esselunga', amount: 43.90, date: '2026-08-03', category: 'spesa' });
@@ -159,6 +160,67 @@ controlla(salvato === 9.9, `atteso 9,90, trovato ${salvato}`);
 controlla(!todoDopo, "completato l'importo, l'avviso deve sparire");
 controlla(await page.locator('[data-fill]').count() === 0, "l'invito deve sparire dall'elenco");
 await scatto('64-completato');
+
+/* ── 5. la testata sul telefono vero ─────────────────────────────
+   Sul telefono la barra di stato lascia una safe area che nei test è
+   sempre zero: è lì che l'intestazione della home è finita coperta e
+   sembrava sparita. Questo controllo la simula. */
+const conBarra = await browser.newContext({ viewport: { width: 393, height: 851 }, deviceScaleFactor: 2 });
+const tel = await conBarra.newPage();
+tel.on('pageerror', (e) => errori.push(e.message));
+await tel.goto('http://localhost:4186/');
+await tel.waitForTimeout(900);
+await tel.addStyleTag({ content: ':root{--safe-t:44px !important}' });
+for (const t of ['Esselunga', 'Coop', 'Ikea', 'Decathlon', 'Leroy Merlin', 'Unieuro']) {
+  await creaSu(tel, { title: t, amount: 40, date: '2026-08-05', category: 'spesa' });
+}
+await tel.waitForTimeout(600);
+
+const testata = await tel.evaluate(() => {
+  const r = document.querySelector('.brand').getBoundingClientRect();
+  const s = document.querySelector('#topbar-stick');
+  return {
+    alto: Math.round(r.top), basso: Math.round(r.bottom),
+    scritta: document.querySelector('.brand__text strong').textContent.trim(),
+    classi: s.className,
+    copertura: getComputedStyle(s, '::before').opacity,
+  };
+});
+console.log(`5) con la barra di stato: marchio "${testata.scritta}" da ${testata.alto} a ${testata.basso}px · barra "${testata.classi}", copertura ${testata.copertura}`);
+controlla(testata.alto >= 0, "l'intestazione non deve finire sotto la barra di stato");
+controlla(testata.copertura === '0', 'ferma in cima non c\'è niente da coprire: la striscia deve essere spenta');
+
+/*
+ * Il controllo vero: `elementFromPoint` non basta (una striscia con
+ * pointer-events:none copre eppure si lascia attraversare). Fotografo
+ * l'intestazione, poi la rifotografo con la striscia disattivata: se le
+ * due immagini differiscono, qualcosa la stava nascondendo.
+ */
+const conStriscia = await tel.locator('.brand').screenshot();
+await tel.addStyleTag({ content: '.topbar__stick::before{display:none !important}' });
+await tel.waitForTimeout(200);
+const senzaStriscia = await tel.locator('.brand').screenshot();
+console.log(`   intestazione fotografata: ${conStriscia.length} byte, senza la striscia ${senzaStriscia.length} byte`);
+controlla(conStriscia.equals(senzaStriscia), "l'intestazione della home è nascosta dalla striscia della barra appiccicata");
+await tel.screenshot({ path: `${SHOTS}/65-testata-telefono.png` });
+
+// e scorrendo, la striscia che copre deve invece esserci
+await tel.evaluate(() => window.scrollTo(0, 300));
+await tel.waitForTimeout(600);
+const scorsa = await tel.evaluate(() => {
+  const s = document.querySelector('#topbar-stick');
+  const r = s.getBoundingClientRect();
+  const soglia = parseFloat(getComputedStyle(s).top) || 0;
+  return {
+    top: Math.round(r.top), soglia: Math.round(soglia),
+    attaccata: s.classList.contains('is-stuck'),
+    copertura: getComputedStyle(s, '::before').opacity,
+  };
+});
+console.log(`   scorrendo: si ferma a ${scorsa.top}px (sotto la barra di stato a ${scorsa.soglia}px), copertura ${scorsa.copertura}`);
+controlla(scorsa.top === scorsa.soglia, 'appiccicata deve fermarsi sotto la barra di stato');
+controlla(scorsa.attaccata && scorsa.copertura === '1', 'da appiccicata la striscia coprente deve accendersi');
+await tel.screenshot({ path: `${SHOTS}/66-testata-telefono-scorsa.png` });
 
 console.log(errori.length ? `ERRORI JS:\n${errori.join('\n')}` : 'Nessun errore JS');
 console.log(ok && !errori.length ? '\n✅ MIGLIORIE OK' : '\n❌ QUALCOSA NON TORNA');
