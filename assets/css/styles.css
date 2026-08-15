@@ -46,6 +46,7 @@
   --shadow-2: 0 6px 20px -8px rgba(22,21,26,.18);
   --shadow-3: 0 24px 60px -12px rgba(22,21,26,.28);
   --shadow-accent: 0 10px 28px -12px rgba(47,83,240,.75);
+  --grana:       rgba(22,21,26,.055);
 
   --r-xs: 8px; --r-sm: 12px; --r-md: 16px; --r-lg: 20px; --r-xl: 26px;
   --pad: 20px;
@@ -85,6 +86,7 @@
     --shadow-2: 0 8px 24px -10px rgba(0,0,0,.7);
     --shadow-3: 0 26px 64px -14px rgba(0,0,0,.8);
     --shadow-accent: 0 10px 28px -14px rgba(109,134,255,.8);
+    --grana:       rgba(255,255,255,.045);
   }
 }
 :root[data-theme="dark"] {
@@ -112,6 +114,7 @@
   --shadow-2: 0 8px 24px -10px rgba(0,0,0,.7);
   --shadow-3: 0 26px 64px -14px rgba(0,0,0,.8);
   --shadow-accent: 0 10px 28px -14px rgba(109,134,255,.8);
+  --grana:       rgba(255,255,255,.045);
 }
 
 /* ── Base ──────────────────────────────────────────────────── */
@@ -120,8 +123,17 @@ html, body { height: 100%; }
 body {
   margin: 0;
   font-family: var(--font);
-  background: var(--bg);
   color: var(--ink);
+  /*
+   * Grana di carta: puntini radi e quasi invisibili sul fondo. Non si
+   * guarda, si sente — toglie quel piattume da foglio bianco senza
+   * aggiungere niente da leggere. Sotto alle schede, che sono piene,
+   * non si vede affatto: compare solo negli spazi vuoti.
+   */
+  background-color: var(--bg);
+  background-image: radial-gradient(var(--grana) .5px, transparent .5px);
+  background-size: 22px 22px;
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
@@ -295,6 +307,10 @@ svg { width: 100%; height: 100%; display: block; }
   letter-spacing: -.045em; line-height: 1.02; color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
+.summary__amount .valuta, .detail__amount .valuta {
+  font-size: .58em; font-weight: 600; color: var(--ink-3);
+  letter-spacing: 0; margin-left: .1em;
+}
 .summary__meta {
   display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
   margin-top: 4px; font-size: 13.5px; color: var(--ink-3);
@@ -370,14 +386,36 @@ svg { width: 100%; height: 100%; display: block; }
 }
 @keyframes cardIn { from { opacity: 0; transform: translateY(12px); } }
 .card:active { transform: scale(.97); }
-.card__img { display: block; position: relative; aspect-ratio: 4 / 5; background: var(--surface-2); overflow: hidden; }
+/*
+ * Lo strappo. Le foto in elenco finiscono con la dentellatura di uno
+ * scontrino staccato dal rotolo: è l'unico ornamento dell'app, e dice
+ * in un colpo d'occhio che cosa si sta guardando. Due maschere — il
+ * pieno fino a poco dalla fine, poi i denti — così sotto si vede la
+ * scheda e sembra carta strappata davvero.
+ */
+.card__img {
+  display: block; position: relative; aspect-ratio: 4 / 5;
+  background: var(--surface-2); overflow: hidden;
+  --dente: 8px;
+}
+/* i denti sono del colore della scheda e si posano sul bordo basso
+   della foto: da lì in giù sembra carta staccata dal rotolo */
+.card__img::before {
+  content: ""; position: absolute; z-index: 3;
+  left: 0; right: 0; bottom: -1px; height: var(--dente);
+  background:
+    linear-gradient(45deg, var(--surface) 25%, transparent 0) 0 0 / 16px var(--dente) repeat-x,
+    linear-gradient(-45deg, var(--surface) 25%, transparent 0) 0 0 / 16px var(--dente) repeat-x;
+}
 .card__img img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
 .card__img::after {
   content: ""; position: absolute; inset: auto 0 0 0; height: 42%;
   background: linear-gradient(transparent, rgba(10,10,14,.55));
 }
 .card__amount {
-  display: block; position: absolute; left: 11px; bottom: 10px; z-index: 2;
+  display: block; position: absolute; left: 11px; z-index: 2;
+  /* sopra la dentellatura, non a cavallo dei denti */
+  bottom: calc(12px + var(--dente, 0px));
   color: #fff; font-size: 16px; font-weight: 700; letter-spacing: -.02em;
   font-variant-numeric: tabular-nums;
 }
@@ -436,7 +474,7 @@ svg { width: 100%; height: 100%; display: block; }
 }
 .manca:active { transform: scale(.94); background: var(--surface-2); }
 .card__amount.manca {
-  position: absolute; left: 11px; bottom: 10px; z-index: 3;
+  position: absolute; left: 11px; bottom: calc(12px + var(--dente, 0px)); z-index: 3;
   border-color: rgba(255,255,255,.6); color: #fff;
   background: rgba(10,10,14,.35); backdrop-filter: blur(2px);
 }

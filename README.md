@@ -127,6 +127,7 @@ assets/js/
   ocr.js                 dal testo dello scontrino a totale, data e negozio
   ui.js                  toast, bottom sheet, conferme, zoom foto
   app.js                 stato, schermate, azioni
+tests/completo.mjs       giro completo dell'app guidato dall'interfaccia
 tools/gen-icons.js       rigenera le icone PNG (node tools/gen-icons.js icons)
 android/                 contenitore Android: WebView + ponte per salvare i file
   app/src/main/java/…    MainActivity, FileBridge (download), UpdateChecker
@@ -143,6 +144,17 @@ attenzione. Tre regole tengono insieme il tutto:
 2. **si separa con linee sottili, non con ombre**: l'ombra è solo di ciò che
    galleggia davvero (pulsante di scatto, schede, avvisi);
 3. **i numeri sono grandi e a larghezza fissa**, così si leggono in colonna.
+
+Da lì vengono i tre soli ornamenti che l'app si concede, tutti e tre a costo
+zero di attenzione:
+
+- **lo strappo.** Le foto in elenco finiscono con la dentellatura di uno
+  scontrino staccato dal rotolo. È l'unica decorazione vera, e dice in un colpo
+  d'occhio cosa si sta guardando;
+- **la grana.** Puntini radi e quasi invisibili sul fondo: non si guardano, si
+  sentono. Sotto alle schede, che sono piene, spariscono del tutto;
+- **la valuta in secondo piano.** Nei numeri grandi il simbolo è più piccolo e
+  più chiaro delle cifre: le cifre sono il messaggio, il simbolo è servizio.
 
 Sulla lista il totale del periodo è il protagonista, con il confronto sul mese
 precedente e sei colonnine che mostrano l'andamento recente: due informazioni
@@ -196,6 +208,25 @@ LEGGIMI.txt                              istruzioni per il te del futuro
 
 Il ripristino aggiunge solo gli scontrini mancanti: puoi reimportare lo stesso backup
 mille volte senza creare doppioni.
+
+## Le prove
+
+`tests/` contiene prove vere, non finte: ognuna avvia un server, apre l'app in
+Chromium e la usa. La più importante è **`tests/completo.mjs`**, che percorre
+tutta l'app dall'interfaccia — aggiunge scontrini passando dalla fotocamera e
+dalla galleria, cerca, filtra, modifica, cestina, esporta e reimporta il backup —
+e **ripete ogni azione tre volte**: i guasti peggiori non sono al primo tocco ma
+al terzo, quando qualcosa si è accumulato. Dopo ogni azione conclusa controlla
+anche che non sia rimasto niente aperto sopra la pagina.
+
+```bash
+node tests/completo.mjs      # il giro completo
+node tests/ocr.mjs           # la lettura degli scontrini, senza browser
+node tests/migliorie.mjs     # testata, ricerca, importi mancanti
+node tests/scadenze.mjs      # resi e garanzie, ricalcolo compreso
+node tests/navigazione.mjs   # il tasto Indietro di Android
+node tests/service-worker.mjs
+```
 
 ## Licenza
 

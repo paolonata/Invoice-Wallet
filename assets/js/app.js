@@ -3,7 +3,7 @@
    Tutto gira nel browser: nessun account, nessun server.
    ══════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = '2.1.1';
+const APP_VERSION = '2.2.0';
 
 const DEFAULT_SETTINGS = {
   theme: 'auto',        // auto | light | dark
@@ -249,7 +249,10 @@ function renderSummary() {
   $('#summary-label').textContent = state.filter.query
     ? 'Totale dei risultati'
     : (mese === 'all' ? 'Totale archivio' : monthLabel(mese));
-  $('#summary-amount').textContent = fmtMoney(total, cur());
+  // Il simbolo della valuta è servizio, le cifre sono il messaggio:
+  // stesso testo, ma il simbolo più piccolo e più chiaro.
+  $('#summary-amount').innerHTML = fmtMoney(total, cur())
+    .replace(/[^\d\s., ]+/g, (s) => `<span class="valuta">${s}</span>`);
   $('#summary-count').textContent = `${list.length} ${list.length === 1 ? 'scontrino' : 'scontrini'}`;
 
   /*
@@ -467,7 +470,7 @@ async function renderDetail() {
 
     <div class="detail__info">
       <div class="detail__head">
-        ${r.amount != null ? `<div class="detail__amount">${esc(fmtMoney(r.amount, r.currency || cur()))}</div>` : ''}
+        ${r.amount != null ? `<div class="detail__amount">${esc(fmtMoney(r.amount, r.currency || cur())).replace(/[^\d\s., ]+/g, (x) => `<span class="valuta">${x}</span>`)}</div>` : ''}
         <div class="detail__title">${esc(r.title || 'Scontrino')}</div>
       </div>
 
@@ -817,17 +820,26 @@ async function renderSettings() {
 
   hydrateIcons(body);
 
-  $('#theme-seg', body).addEventListener('click', async (e) => {
-    const btn = e.target.closest('[data-theme-opt]');
-    if (!btn) return;
-    await saveSettings({ theme: btn.dataset.themeOpt });
-    renderSettings();
-  });
+}
 
-  body.addEventListener('click', (e) => {
+/*
+ * I tocchi delle impostazioni si ascoltano una volta sola, qui.
+ * `#settings-body` resta lo stesso elemento a ogni disegno: attaccare
+ * l'ascoltatore dentro renderSettings ne aggiungeva uno per ogni
+ * modifica, e al secondo cambio di qualità si aprivano due schede
+ * sovrapposte — la prima invisibile, ma con il suo velo che si mangiava
+ * i tocchi.
+ */
+function wireSettingsEvents() {
+  $('#settings-body').addEventListener('click', async (e) => {
+    const tema = e.target.closest('[data-theme-opt]');
+    if (tema) {
+      await saveSettings({ theme: tema.dataset.themeOpt });
+      renderSettings();
+      return;
+    }
     const btn = e.target.closest('[data-act]');
-    if (!btn) return;
-    settingsAction(btn.dataset.act);
+    if (btn) settingsAction(btn.dataset.act);
   });
 }
 
@@ -1677,6 +1689,7 @@ function wireTestataRitratta() {
 
 function wireGlobalEvents() {
   wireTestataRitratta();
+  wireSettingsEvents();
   $('#fab').addEventListener('click', startAdd);
   $('#empty-cta').addEventListener('click', () => $('#input-camera').click());
 
