@@ -1,14 +1,11 @@
 package com.invoicewallet.app;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
-import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -21,8 +18,6 @@ import android.widget.Toast;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.webkit.ServiceWorkerClientCompat;
 import androidx.webkit.ServiceWorkerControllerCompat;
@@ -42,13 +37,11 @@ public class MainActivity extends AppCompatActivity {
   private static final String ORIGIN = "https://appassets.androidplatform.net";
   private static final String START_URL = ORIGIN + "/index.html";
   private static final int REQ_FILE_CHOOSER = 1001;
-  private static final int REQ_CAMERA = 1002;
 
   private WebView webView;
   private WebViewAssetLoader assetLoader;
   private ValueCallback<Uri[]> pendingFileCallback;
   private Uri pendingCameraOutput;
-  private PermissionRequest pendingCameraPermission;
 
   @Override
   @SuppressLint("SetJavaScriptEnabled")
@@ -95,34 +88,6 @@ public class MainActivity extends AppCompatActivity {
       public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
                                        FileChooserParams params) {
         return openPicker(callback, params);
-      }
-
-      /*
-       * La pagina chiede la fotocamera per mostrare l'inquadratura.
-       * Il permesso di sistema si chiede una volta sola; se manca, la
-       * richiesta viene negata e la pagina propone la fotocamera del telefono.
-       */
-      @Override
-      public void onPermissionRequest(PermissionRequest request) {
-        boolean vuoleVideo = false;
-        for (String risorsa : request.getResources()) {
-          if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(risorsa)) vuoleVideo = true;
-        }
-        if (!vuoleVideo) { request.deny(); return; }
-
-        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA)
-            == PackageManager.PERMISSION_GRANTED) {
-          request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
-          return;
-        }
-        pendingCameraPermission = request;
-        ActivityCompat.requestPermissions(MainActivity.this,
-            new String[]{Manifest.permission.CAMERA}, REQ_CAMERA);
-      }
-
-      @Override
-      public void onPermissionRequestCanceled(PermissionRequest request) {
-        pendingCameraPermission = null;
       }
     });
 
@@ -197,11 +162,6 @@ public class MainActivity extends AppCompatActivity {
     try {
       startActivityForResult(target, REQ_FILE_CHOOSER);
       return true;
-    } catch (SecurityException e) {
-      // Succede se il permesso fotocamera è stato negato: lo chiedo e basta.
-      pendingFileCallback = null;
-      ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQ_CAMERA);
-      return false;
     } catch (Exception e) {
       pendingFileCallback = null;
       Toast.makeText(this, R.string.no_camera_app, Toast.LENGTH_LONG).show();
@@ -226,20 +186,6 @@ public class MainActivity extends AppCompatActivity {
       pendingCameraOutput = null;
       return null;
     }
-  }
-
-  @Override
-  public void onRequestPermissionsResult(int requestCode, String[] permessi, int[] esiti) {
-    super.onRequestPermissionsResult(requestCode, permessi, esiti);
-    if (requestCode != REQ_CAMERA || pendingCameraPermission == null) return;
-
-    boolean concesso = esiti.length > 0 && esiti[0] == PackageManager.PERMISSION_GRANTED;
-    if (concesso) {
-      pendingCameraPermission.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
-    } else {
-      pendingCameraPermission.deny();
-    }
-    pendingCameraPermission = null;
   }
 
   @Override

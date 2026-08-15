@@ -49,6 +49,7 @@
 
   --r-xs: 8px; --r-sm: 12px; --r-md: 16px; --r-lg: 20px; --r-xl: 26px;
   --pad: 20px;
+  --tab-h: 60px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
 
@@ -164,7 +165,7 @@ svg { width: 100%; height: 100%; display: block; }
 /* ── Impianto ──────────────────────────────────────────────── */
 .app { min-height: 100%; }
 .view {
-  padding: calc(var(--safe-t) + 6px) 0 calc(var(--safe-b) + 96px);
+  padding: calc(var(--safe-t) + 6px) 0 calc(var(--tab-h) + var(--safe-b) + 30px);
   max-width: 720px; margin: 0 auto;
   animation: viewIn .3s var(--ease-out);
 }
@@ -176,6 +177,28 @@ svg { width: 100%; height: 100%; display: block; }
 
 /* ── Testata ───────────────────────────────────────────────── */
 .topbar { padding: 8px var(--pad) 0; display: grid; gap: 14px; }
+
+/*
+ * Scorrendo l'archivio, il marchio e il totale se ne vanno — sai già in
+ * che app sei — mentre periodo e ricerca restano appiccicati in cima.
+ * Costano una quarantina di pixel e risparmiano di risalire ogni volta.
+ */
+.topbar__stick {
+  position: sticky; top: 0; z-index: 20;
+  background: var(--bg); display: grid; gap: 12px;
+  padding: 0 var(--pad); margin-top: 14px;
+  transition: box-shadow .22s var(--ease);
+}
+.topbar__stick.is-stuck { box-shadow: 0 6px 12px -10px rgba(0,0,0,.45); }
+/* copre la striscia sopra (barra di stato): senza, si intravede
+   l'elenco che scorre dietro la testata */
+.topbar__stick::before {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 100%;
+  height: calc(var(--safe-t) + 14px); background: var(--bg);
+}
+.topbar__strip { display: flex; align-items: flex-end; gap: 10px; }
+.topbar__strip .months { flex: 1; min-width: 0; margin-right: 0; }
+.topbar__strip .iconbtn { margin-bottom: 6px; }
 .topbar__row { display: flex; align-items: center; gap: 10px; min-height: 40px; }
 .topbar__hint { padding: 0 2px; color: var(--ink-3); font-size: 13.5px; line-height: 1.5; }
 .title { font-size: 27px; font-weight: 700; letter-spacing: -.03em; }
@@ -247,47 +270,53 @@ svg { width: 100%; height: 100%; display: block; }
 .month.is-active { color: var(--ink); }
 .month.is-active::after { transform: scaleX(1); }
 
-/* ── Archivio: titolo, ricerca sempre in vista ─────────────── */
-.arc__top { padding: calc(var(--safe-t) + 4px) var(--pad) 0; display: grid; gap: 14px; }
-.arc__titolo { display: flex; align-items: center; gap: 10px; }
-.arc__titolo h1 { flex: 1; font-size: 28px; font-weight: 700; letter-spacing: -.035em; }
-
-/* ── Il totale del periodo: si tocca e porta alle statistiche ─ */
-.totale {
+/* ── Riepilogo: il numero è il protagonista ────────────────── */
+.summary {
+  position: relative;
+  margin: 20px var(--pad) 0;
   display: grid; grid-template-columns: minmax(0, 1fr) auto;
   align-items: end; column-gap: 16px; row-gap: 2px;
-  width: calc(100% - var(--pad) * 2); margin: 22px var(--pad) 0;
-  text-align: left; transition: opacity .18s;
 }
-.totale:active { opacity: .65; }
-.totale__testa { grid-column: 1; display: flex; align-items: center; gap: 8px; }
-.totale__label { font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
-.totale__vai { width: 15px; height: 15px; color: var(--accent); }
-.totale__cifra {
-  grid-column: 1; font-size: clamp(38px, 12vw, 46px); font-weight: 700;
-  letter-spacing: -.045em; line-height: 1.02; font-variant-numeric: tabular-nums;
+.summary__label, .summary__amount, .summary__meta { grid-column: 1; }
+.summary__glow { display: none; }
+.summary__label { font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+.summary__amount {
+  font-size: clamp(38px, 12vw, 46px); font-weight: 700;
+  letter-spacing: -.045em; line-height: 1.02; color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
-.totale__meta {
-  grid-column: 1; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+.summary__meta {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
   margin-top: 4px; font-size: 13.5px; color: var(--ink-3);
 }
-.totale__meta .dot { width: 3px; height: 3px; border-radius: 50%; background: currentColor; opacity: .5; }
+.summary__meta .dot { width: 3px; height: 3px; border-radius: 50%; background: currentColor; opacity: .5; }
 .summary__delta { font-weight: 650; }
 .summary__delta--su { color: var(--danger); }
 .summary__delta--giu { color: var(--accent); }
 
+/* Quanto del totale non è contato perché l'importo manca: dirlo è più
+   onesto che mostrare una somma che sembra completa e non lo è. */
+.summary__todo {
+  flex-basis: 100%; margin-top: -2px;
+  font-size: 12.5px; color: var(--ink-3);
+}
+
+/* andamento in miniatura, tocca per le statistiche */
 /* Andamento in miniatura: sei mesi accanto al totale, senza numeri. */
 .spark {
   grid-column: 2; grid-row: 1 / span 3; align-self: end;
   display: flex; align-items: flex-end; gap: 4px;
   width: 86px; height: 38px; margin-bottom: 5px;
+  transition: opacity .18s;
 }
+.spark:active { opacity: .6; }
 .spark__bar {
   flex: 1; border-radius: 2px 2px 1px 1px; min-height: 2px;
   background: var(--surface-3);
   animation: growUp .5s var(--ease-out) backwards;
 }
 .spark__bar.is-now { background: var(--accent); }
+.spark__bar.is-vuoto { opacity: .45; }
 
 /* ── Barra strumenti ───────────────────────────────────────── */
 .toolbar { display: flex; align-items: center; gap: 8px; padding: 18px var(--pad) 6px; }
@@ -310,8 +339,8 @@ svg { width: 100%; height: 100%; display: block; }
 .feed { padding: 10px var(--pad) 0; }
 .feed__month {
   display: flex; align-items: center; gap: 12px;
-  padding: 22px 0 10px; position: sticky; top: 0; z-index: 3;
-  background: linear-gradient(var(--bg) 70%, transparent);
+  padding: 22px 0 10px; position: sticky; top: var(--head-h, 0px); z-index: 3;
+  background: var(--bg);
 }
 .feed__month h3 { flex: none; }
 .feed__month::before {
@@ -385,6 +414,23 @@ svg { width: 100%; height: 100%; display: block; }
   letter-spacing: -.02em; flex: none; padding-right: 2px;
 }
 
+/*
+ * L'importo che manca non è un trattino ma un invito: si tocca e si
+ * scrive, senza passare dal dettaglio e dal menu delle azioni.
+ */
+.manca {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 10px; border-radius: 999px;
+  border: 1px dashed var(--line); background: transparent;
+  font-size: 12.5px; font-weight: 650; letter-spacing: 0; color: var(--ink-3);
+}
+.manca:active { transform: scale(.94); background: var(--surface-2); }
+.card__amount.manca {
+  position: absolute; left: 11px; bottom: 10px; z-index: 3;
+  border-color: rgba(255,255,255,.6); color: #fff;
+  background: rgba(10,10,14,.35); backdrop-filter: blur(2px);
+}
+
 /* ── Vuoto ─────────────────────────────────────────────────── */
 .empty { padding: 44px 34px; text-align: center; display: grid; justify-items: center; gap: 10px; }
 .empty__art { width: 150px; height: 132px; margin-bottom: 4px; opacity: .95; }
@@ -413,134 +459,62 @@ svg { width: 100%; height: 100%; display: block; }
 .btn[disabled] { opacity: .45; pointer-events: none; }
 .btn--marg { margin-top: 10px; }
 
-/* ══════════════════════════════════════════════════════════════
-   Scattare.
+/* ── Navigazione e scatto ──────────────────────────────────── */
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  height: calc(var(--tab-h) + var(--safe-b)); padding-bottom: var(--safe-b);
+  display: flex; align-items: stretch;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(20px) saturate(1.6);
+  border-top: 1px solid var(--line-soft);
+}
+@supports not (backdrop-filter: blur(1px)) { .tabbar { background: var(--bg); } }
+.tabbar__slot { width: 66px; flex: none; }
+.tab {
+  flex: 1; position: relative;
+  display: grid; place-items: center; gap: 3px; color: var(--ink-3);
+  transition: color .2s var(--ease);
+}
+.tab [data-icon] { width: 22px; height: 22px; transition: transform .26s var(--ease-out); }
+.tab em {
+  font-style: normal; font-size: 9.5px; font-weight: 650; letter-spacing: .01em;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tab.is-active { color: var(--ink); }
+.tab.is-active [data-icon] { transform: translateY(-1px); }
+/* punto blu: dice dove sei senza urlare */
+.tab::before {
+  content: ""; position: absolute; top: 6px; left: 50%; margin-left: -2px;
+  width: 4px; height: 4px; border-radius: 50%; background: var(--accent);
+  opacity: 0; transform: scale(.4); transition: all .28s var(--ease-out);
+}
+.tab.is-active::before { opacity: 1; transform: scale(1); }
 
-   Un solo pulsante, sempre nello stesso posto, con la parola scritta
-   sopra: è il gesto che si fa dieci volte al mese, non deve mai essere
-   cercato. Da lì si entra nel mirino, che occupa tutto lo schermo.
-   ══════════════════════════════════════════════════════════════ */
+.tabbadge {
+  position: absolute; top: 3px; left: 50%; margin-left: 5px;
+  min-width: 16px; height: 16px; padding: 0 5px; border-radius: 99px;
+  background: var(--danger); color: #fff;
+  font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
+  box-shadow: 0 0 0 2px var(--bg);
+  animation: rise .3s var(--ease-out);
+}
 
-.scatta {
+.fab {
   position: fixed; z-index: 41;
   left: 50%; transform: translateX(-50%);
-  bottom: calc(var(--safe-b) + 18px);
-  display: flex; align-items: center; gap: 9px;
-  padding: 14px 24px 14px 20px; border-radius: 999px;
-  background: var(--ink); color: var(--bg);
-  font-size: 15.5px; font-weight: 650;
-  box-shadow: var(--shadow-2);
+  bottom: calc(var(--safe-b) + 14px);
+  width: 56px; height: 56px; border-radius: 19px;
+  background: var(--accent); color: var(--accent-ink);
+  display: grid; place-items: center;
+  box-shadow: var(--shadow-accent);
+  border: 3px solid var(--bg);
   transition: transform .2s var(--ease);
 }
-.scatta em { font-style: normal; }
-.scatta [data-icon] { width: 21px; height: 21px; }
-.scatta:active { transform: translateX(-50%) scale(.94); }
-
-/* ── Mirino ────────────────────────────────────────────────── */
-.view--camera {
-  position: fixed; inset: 0; z-index: 45;
-  max-width: none; margin: 0; padding: 0;
-  background: #000; overflow: hidden;
-  display: block;
-  animation: mirinoIn .28s var(--ease-out);
+.fab [data-icon] { width: 26px; height: 26px; }
+.fab:active { transform: translateX(-50%) scale(.9); }
+@media (min-width: 720px) {
+  .tabbar { max-width: 720px; margin: 0 auto; border-radius: 20px 20px 0 0; border: 1px solid var(--line-soft); border-bottom: 0; }
 }
-@keyframes mirinoIn { from { opacity: 0; transform: scale(1.03); } }
-#cam-video { width: 100%; height: 100%; object-fit: cover; background: #000; }
-
-/* angoli: dicono dove mettere lo scontrino senza coprire la scena */
-.cam__guida { position: absolute; inset: 12% 8% 22%; pointer-events: none; }
-.cam__guida span { position: absolute; width: 26px; height: 26px; border: 2.5px solid rgba(255,255,255,.85); border-radius: 4px; }
-.cam__guida span:nth-child(1) { top: 0; left: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 10px; }
-.cam__guida span:nth-child(2) { top: 0; right: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 10px; }
-.cam__guida span:nth-child(3) { bottom: 0; left: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 10px; }
-.cam__guida span:nth-child(4) { bottom: 0; right: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 10px; }
-
-.cam__testa {
-  position: absolute; top: 0; left: 0; right: 0;
-  padding: calc(var(--safe-t) + 12px) var(--pad) 16px;
-  display: flex; align-items: center; gap: 12px;
-  background: linear-gradient(rgba(0,0,0,.55), transparent);
-}
-.cam__chiudi { background: rgba(255,255,255,.16); border-color: transparent; color: #fff; backdrop-filter: blur(8px); }
-.cam__suggerimento { flex: 1; color: rgba(255,255,255,.9); font-size: 13.5px; font-weight: 550; }
-
-.cam__barra {
-  position: absolute; left: 0; right: 0; bottom: 0;
-  padding: 20px var(--pad) calc(var(--safe-b) + 26px);
-  display: flex; align-items: center; justify-content: space-between;
-  background: linear-gradient(transparent, rgba(0,0,0,.6));
-}
-.cam__lato {
-  width: 46px; height: 46px; border-radius: 15px;
-  display: grid; place-items: center; color: #fff;
-  background: rgba(255,255,255,.16); backdrop-filter: blur(8px);
-  transition: transform .18s var(--ease);
-}
-.cam__lato:active { transform: scale(.9); }
-
-.otturatore {
-  width: 74px; height: 74px; border-radius: 50%;
-  border: 4px solid rgba(255,255,255,.9); background: transparent;
-  display: grid; place-items: center;
-  transition: transform .16s var(--ease);
-}
-.otturatore span { width: 58px; height: 58px; border-radius: 50%; background: #fff; transition: transform .16s var(--ease); }
-.otturatore:active span { transform: scale(.88); }
-.otturatore.is-flash span { background: var(--accent); transform: scale(.8); }
-.otturatore[disabled] { opacity: .4; }
-
-.cam__vuoto {
-  position: absolute; inset: 0; z-index: 2;
-  display: grid; place-content: center; justify-items: center; gap: 16px;
-  padding: 40px; text-align: center; color: rgba(255,255,255,.9);
-  background: #101014;
-}
-.cam__vuoto [data-icon] { width: 40px; height: 40px; opacity: .5; }
-.cam__vuoto p { font-size: 14.5px; line-height: 1.55; max-width: 28ch; }
-
-/* ── Dopo lo scatto ────────────────────────────────────────── */
-.scattato {
-  position: absolute; left: var(--pad); right: var(--pad);
-  bottom: calc(var(--safe-b) + 130px); z-index: 3;
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 12px; border-radius: 16px;
-  background: color-mix(in srgb, var(--bg-elev) 94%, transparent);
-  backdrop-filter: blur(14px);
-  box-shadow: var(--shadow-3);
-  animation: scattatoIn .34s var(--ease-out);
-}
-@keyframes scattatoIn { from { opacity: 0; transform: translateY(14px) scale(.96); } }
-.scattato.is-out { animation: scattatoOut .26s var(--ease) forwards; }
-@keyframes scattatoOut { to { opacity: 0; transform: translateY(10px); } }
-.scattato__foto { width: 40px; height: 50px; border-radius: 9px; overflow: hidden; background: var(--surface-2); flex: none; }
-.scattato__foto img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
-.scattato__testo { flex: 1; min-width: 0; display: grid; gap: 1px; }
-.scattato__testo b { font-size: 16px; font-weight: 700; letter-spacing: -.02em; }
-.scattato__testo small { font-size: 12.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.scattato__azione {
-  display: flex; align-items: center; gap: 7px; flex: none;
-  padding: 10px 14px; border-radius: 12px;
-  background: var(--accent); color: var(--accent-ink);
-  font-size: 14px; font-weight: 650;
-}
-.scattato__azione [data-icon] { width: 17px; height: 17px; }
-
-/* ── Tastierino dell'importo ───────────────────────────────── */
-.tastierino { display: grid; gap: 4px; }
-.tastierino__cifra {
-  font-size: 44px; font-weight: 700; letter-spacing: -.05em;
-  text-align: center; font-variant-numeric: tabular-nums;
-}
-.tastierino__negozio { text-align: center; color: var(--ink-3); font-size: 13.5px; margin-bottom: 10px; }
-.tastierino__tasti { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.tastierino__tasti button {
-  padding: 17px 0; border-radius: 14px; background: var(--surface-2);
-  font-size: 23px; font-weight: 600; font-variant-numeric: tabular-nums;
-  display: grid; place-items: center;
-  transition: transform .12s var(--ease), background .12s;
-}
-.tastierino__tasti button:active { transform: scale(.94); background: var(--surface-3); }
-.tastierino__tasti button [data-icon] { width: 22px; height: 22px; color: var(--ink-2); }
 
 /* ── Avviso in cima alla lista ─────────────────────────────── */
 .alertbar {
@@ -834,7 +808,7 @@ svg { width: 100%; height: 100%; display: block; }
 /* ── Avvisi temporanei ─────────────────────────────────────── */
 .toasts {
   position: fixed; z-index: 85; left: 0; right: 0;
-  bottom: calc(var(--safe-b) + 96px);
+  bottom: calc(var(--tab-h) + var(--safe-b) + 14px);
   display: grid; gap: 8px; justify-items: center; pointer-events: none; padding: 0 14px;
 }
 .toast {
