@@ -2,7 +2,7 @@
 
 App per **fotografare gli scontrini e non perderli mai più**.
 Scatti la foto, la ritrovi per sempre: niente account, niente abbonamenti, niente server.
-Nessun riconoscimento del testo — l'app salva la foto e i quattro dati che servono davvero.
+Nell'app Android legge da sé negozio, totale e data; il resto lo scrivi tu, o non lo scrivi affatto.
 
 <p align="center">
   <img src="icons/icon-192.png" width="96" alt="Icona Invoice Wallet">
@@ -19,7 +19,7 @@ Nessun riconoscimento del testo — l'app salva la foto e i quattro dati che ser
 | 🔎 **Ritrova tutto** | La ricerca guarda in tutto l'archivio, anche fuori dal mese che stai vedendo |
 | 📊 **Statistiche** | Quanto spendi al mese, dove vanno i soldi, lo scontrino più caro |
 | ✨ **Compila da sola** | Nell'app Android legge lo scontrino e riempie totale, data e negozio |
-| ⏳ **Scadenze resi e cambi** | Una scheda dedicata ti dice quanti giorni restano per restituire o cambiare |
+| ⏳ **Scadenze resi e cambi** | Quanti giorni restano per restituire o cambiare, e un tocco per dire «fatto» |
 | 🛡️ **Cestino di sicurezza** | Quello che elimini resta recuperabile per 30 giorni |
 | 💾 **Backup completo** | Un file `.zip` con tutte le foto + un `.csv` apribile con Excel |
 | 📴 **Funziona offline** | Installala sul telefono: si apre come una vera app, anche in aereo |
@@ -83,6 +83,10 @@ Quando salvi uno scontrino puoi attivare **Reso o cambio entro** (scorciatoie da
 tutto in ordine di urgenza — scaduti, oggi e domani, entro una settimana, entro un mese —
 con un pallino rosso sulla scheda e una fascia in cima alla home quando mancano
 tre giorni o meno. Nessuna notifica di sistema: gli avvisi vivono dentro l'app.
+
+Quando il reso l'hai fatto davvero, dal dettaglio dello scontrino tocchi **Fatto**:
+quella scadenza smette di chiamarti, sparisce dagli avvisi e dalla scheda Scadenze,
+e resta scritta come «reso fatto» con la data. Ci si ripensa con *Annulla*.
 
 ## Come si usa
 
@@ -175,10 +179,31 @@ ma è lì che un archivio diventa comodo o fastidioso:
 4. **il totale dichiara i suoi buchi.** Se qualche scontrino è senza importo, la
    somma lo dice sotto al numero invece di sembrare completa.
 
-**Comportamento da app, non da sito.** La schermata di dettaglio sta tutta in
-uno schermo: la foto occupa lo spazio che avanza e i dati restano sempre
-visibili, senza scorrere; per leggere lo scontrino si tocca la foto e si apre a
-schermo intero. Il tasto Indietro di Android chiude prima quello che è aperto
+### Aprire uno scontrino
+
+La schermata di dettaglio parte da una domanda: *perché* stai aprendo questo
+scontrino? Quasi sempre per una di tre ragioni — sapere quanto hai speso,
+capire se sei ancora in tempo per un reso, o mostrare/mandare la prova
+d'acquisto a qualcuno. Perciò è fatta così, dall'alto in basso:
+
+1. **chi è**: importo in grande, esercente, categoria e data. È la prima cosa
+   che leggi, non l'ultima;
+2. **cosa puoi farci adesso**: se il tempo per il reso è ancora aperto compare
+   una fascia con quanti giorni restano e il pulsante **Fatto** — un tocco e
+   quello scontrino smette di comparire fra le scadenze, perché il reso l'hai
+   già fatto. Ci si ripensa con *Annulla*;
+3. **la prova**: la foto, che prende lo spazio che avanza fino a un massimo. Un
+   tocco e si apre a schermo intero, che è dove leggerla ha senso;
+4. **tutto quello che si sa**: reso, garanzia, nota, quante pagine e quanto
+   pesano, quando l'hai aggiunto e quando l'hai modificato. Le righe che non
+   hanno niente da dire non compaiono, così quando c'è poco da leggere lo
+   spazio va alla foto;
+5. **le azioni**: *Modifica* e *Condividi* sempre a portata; nel menu ⋯ ci sono
+   *Copia i dati* (negozio · importo · data, da incollare in una nota spese),
+   *Salva le foto*, *Duplica* e il cestino.
+
+**Comportamento da app, non da sito.** Il dettaglio sta tutto in uno schermo,
+senza scorrere. Il tasto Indietro di Android chiude prima quello che è aperto
 sopra la pagina — foto ingrandita, schede, conferme — e solo dopo torna alla
 schermata precedente: `MainActivity` interroga `window.chiudiSovrapposizione()`
 prima di gestire il tasto, e nel browser la stessa pila è collegata alla

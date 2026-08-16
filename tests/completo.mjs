@@ -255,6 +255,56 @@ console.log('dopo la modifica:', JSON.stringify(modificato));
 controlla(modificato?.importo === 449, 'la modifica deve essere salvata');
 await nessunResiduo('dopo la modifica');
 
+// il reso si può segnare come fatto, e la scadenza sparisce
+const primaDelReso = await page.evaluate(() => ({
+  fascia: !!document.querySelector('[data-reso-fatto]'),
+  scadenze: state.receipts.filter((r) => r.returnUntil && !r.returnDoneAt).length,
+}));
+await page.goBack();
+await attendi(600);
+await page.locator('.card, .row').filter({ hasText: 'MediaWorld' }).first().tap();
+await attendi(900);
+controlla(await page.locator('[data-reso-fatto]').count() === 1, 'con il reso aperto deve comparire la fascia con «Fatto»');
+await page.tap('[data-reso-fatto]');
+await attendi(1200);
+const dopoIlReso = await page.evaluate(() => {
+  const r = state.receipts.find((x) => x.id === state.detailId);
+  return {
+    segnato: !!r.returnDoneAt,
+    fasciaFatto: !!document.querySelector('[data-reso-annulla]'),
+    inScadenza: deadlineEntries().some((e) => e.receipt.id === r.id && e.kind === 'reso'),
+  };
+});
+console.log(`reso: fascia prima ${primaDelReso.fascia} → segnato ${dopoIlReso.segnato}, ancora fra le scadenze: ${dopoIlReso.inScadenza}`);
+controlla(dopoIlReso.segnato, 'il reso doveva risultare fatto');
+controlla(dopoIlReso.fasciaFatto, 'la fascia deve poter annullare');
+controlla(!dopoIlReso.inScadenza, 'un reso fatto non deve più comparire fra le scadenze');
+await scatto('93b-reso-fatto');
+
+await page.tap('[data-reso-annulla]');
+await attendi(1200);
+const annullato = await page.evaluate(() => {
+  const r = state.receipts.find((x) => x.id === state.detailId);
+  return { segnato: !!r.returnDoneAt, inScadenza: deadlineEntries().some((e) => e.receipt.id === r.id && e.kind === 'reso') };
+});
+console.log(`   annullato: segnato ${annullato.segnato}, torna fra le scadenze: ${annullato.inScadenza}`);
+controlla(!annullato.segnato && annullato.inScadenza, 'annullando, il reso deve tornare in attesa');
+
+// la scheda dei dati deve dire quello che si sa dello scontrino
+const dati = await page.evaluate(() => {
+  const righe = [...document.querySelectorAll('.dati__riga')].map((r) => ({
+    etichetta: r.querySelector('dt').textContent.trim(),
+    valore: r.querySelector('dd').textContent.replace(/\s+/g, ' ').trim(),
+  }));
+  return righe;
+});
+console.log('   scheda dati:', dati.map((d) => `${d.etichetta}=${d.valore}`).join(' | '));
+controlla(dati.length >= 4, `la scheda deve dire più di due cose (righe: ${dati.length})`);
+controlla(dati.some((d) => d.etichetta.includes('Reso')), 'deve comparire la scadenza del reso');
+controlla(dati.some((d) => d.etichetta === 'Foto' && /pagine|pagina/.test(d.valore) && /KB|MB/.test(d.valore)),
+  'deve dire quante foto e quanto pesano');
+controlla(dati.some((d) => d.etichetta === 'Aggiunto'), 'deve dire quando è stato aggiunto');
+
 // il menu ⋯, tre volte
 for (let giro = 1; giro <= 3; giro++) {
   await page.tap('[data-more]');

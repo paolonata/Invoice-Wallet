@@ -12,7 +12,7 @@
 // Dentro l'APK la pagina è servita da questo dominio finto.
 const DENTRO_APP_ANDROID = self.location.hostname === 'appassets.androidplatform.net';
 
-const CACHE = 'invoice-wallet-v11';
+const CACHE = 'invoice-wallet-v12';
 
 const SHELL = [
   './',

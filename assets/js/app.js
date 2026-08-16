@@ -3,7 +3,7 @@
    Tutto gira nel browser: nessun account, nessun server.
    ══════════════════════════════════════════════════════════════ */
 
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '2.3.0';
 
 const DEFAULT_SETTINGS = {
   theme: 'auto',        // auto | light | dark
@@ -386,7 +386,7 @@ function deadlineTag(r, kind) {
 
 /** Avviso compatto sulla card quando il tempo per il reso sta finendo. */
 function returnChip(r) {
-  if (!r.returnUntil) return null;
+  if (!r.returnUntil || r.returnDoneAt) return null;
   const days = daysLeft(r.returnUntil);
   if (days > 14 || days < -3) return null;
   const st = deadlineStatus(days);
@@ -439,6 +439,96 @@ function renderFeed() {
 
 /* ── Dettaglio ────────────────────────────────────────────── */
 
+/**
+ * La scheda dei dati: quello che si sa dello scontrino, in righe
+ * etichetta/valore. Le righe che non hanno niente da dire non compaiono
+ * — così quando c'è poco da leggere la foto si prende lo spazio, e
+ * quando c'è molto lo prendono i dati.
+ */
+function righeDettaglio(r, quante) {
+  const righe = [];
+  const riga = (etichetta, valore, tono = '') =>
+    righe.push(`<div class="dati__riga${tono ? ` dati__riga--${tono}` : ''}">
+      <dt>${esc(etichetta)}</dt><dd>${valore}</dd></div>`);
+
+  for (const kind of ['reso', 'garanzia']) {
+    const data = kind === 'reso' ? r.returnUntil : r.warrantyUntil;
+    if (!data) continue;
+    const k = DEADLINE_KINDS[kind];
+    if (kind === 'reso' && r.returnDoneAt) {
+      riga(`${k.emoji} ${k.short}`, `<b>reso fatto</b> · ${esc(fmtRelative(r.returnDoneAt))}`);
+      continue;
+    }
+    const st = deadlineStatus(daysLeft(data));
+    riga(`${k.emoji} ${k.short}`,
+      `${esc(fmtDate(data))} <b>${esc(st.text)}</b>`,
+      st.tone === 'red' ? 'rosso' : st.tone === 'amber' ? 'ambra' : '');
+  }
+
+  if (r.note) riga('Nota', `<span class="dati__nota">${esc(r.note)}</span>`);
+
+  riga('Foto', `${quante === 1 ? '1 pagina' : `${quante} pagine`} <span class="dati__peso" id="detail-peso"></span>`);
+  riga('Aggiunto', esc(fmtRelative(r.createdAt)));
+  if (r.updatedAt && r.updatedAt - r.createdAt > 60000) riga('Modificato', esc(fmtRelative(r.updatedAt)));
+
+  return righe.join('');
+}
+
+/**
+ * Se il tempo per il reso è ancora aperto, in cima compare l'unica cosa
+ * che serve in quel momento: quanti giorni restano e i due gesti che si
+ * fanno davvero — mostrare lo scontrino al negozio, e dire che il reso
+ * è stato fatto, così smette di comparire fra le scadenze.
+ */
+function fasciaReso(r) {
+  if (!r.returnUntil) return '';
+  const giorni = daysLeft(r.returnUntil);
+
+  if (r.returnDoneAt) {
+    return `<div class="azione azione--fatto">
+      ${icon('check')}
+      <span class="azione__testo"><b>Reso fatto</b> ${esc(fmtRelative(r.returnDoneAt))}</span>
+      <button class="azione__btn" data-reso-annulla>Annulla</button>
+    </div>`;
+  }
+  if (giorni < 0) return '';
+
+  const st = deadlineStatus(giorni);
+  return `<div class="azione azione--${st.tone === 'red' ? 'ora' : st.tone === 'amber' ? 'presto' : 'calmo'}">
+    ${icon('clock')}
+    <span class="azione__testo"><b>Puoi ancora renderlo</b> ${esc(st.text)}, entro il ${esc(fmtDate(r.returnUntil))}</span>
+    <button class="azione__btn" data-reso-fatto>Fatto</button>
+  </div>`;
+}
+
+/**
+ * I dati in una riga sola, pronti da incollare in una nota spese, in una
+ * chat o in un messaggio al negozio.
+ */
+async function copiaDati(r) {
+  const pezzi = [
+    r.title || 'Scontrino',
+    r.amount != null ? fmtMoney(r.amount, r.currency || cur()) : null,
+    fmtDate(r.date),
+  ].filter(Boolean);
+  try {
+    await navigator.clipboard.writeText(pezzi.join(' · '));
+    toast('Dati copiati', { icon: 'copy' });
+  } catch {
+    toastError('Non sono riuscito a copiare');
+  }
+}
+
+/** Segna il reso come effettuato (o ci ripensa). */
+async function segnaReso(r, fatto) {
+  r.returnDoneAt = fatto ? Date.now() : null;
+  r.updatedAt = Date.now();
+  await DB.putReceipt(r);
+  haptic();
+  await afterChange();
+  toast(fatto ? 'Reso segnato come fatto' : 'Reso di nuovo in attesa', { icon: fatto ? 'check' : 'clock' });
+}
+
 async function renderDetail() {
   const r = byId(state.detailId);
   const box = $('#detail-body');
@@ -448,9 +538,10 @@ async function renderDetail() {
   const quante = r.photoIds.length;
 
   /*
-   * Tutto in una schermata: la foto prende lo spazio che avanza, i dati
-   * restano sempre sotto gli occhi. Per leggere lo scontrino si tocca la
-   * foto e si apre a schermo intero.
+   * Aprendo uno scontrino si vuole sapere che scontrino è, non guardare
+   * una fotografia grande: quello che si sa di lui sta in cima e nella
+   * scheda dei dati, la foto è la prova e prende lo spazio che avanza —
+   * un tocco e si apre a schermo intero, dove leggerla ha senso.
    */
   box.innerHTML = `
     <div class="detail__nav">
@@ -459,6 +550,20 @@ async function renderDetail() {
       <button class="iconbtn" data-fav aria-label="Preferito">${icon(r.favorite ? 'starOn' : 'star')}</button>
       <button class="iconbtn" data-more aria-label="Altre azioni">${icon('more')}</button>
     </div>
+
+    <div class="detail__head">
+      ${r.amount != null
+        ? `<div class="detail__amount">${esc(fmtMoney(r.amount, r.currency || cur())).replace(/[^\d\s., ]+/g, (x) => `<span class="valuta">${x}</span>`)}</div>`
+        : `<button class="detail__amount detail__amount--manca" data-edit-amount>+ aggiungi importo</button>`}
+      <div class="detail__title">${esc(r.title || 'Scontrino')}</div>
+      <div class="detail__meta">
+        <span>${c.emoji} ${esc(c.label)}</span>
+        <span class="dot" aria-hidden="true"></span>
+        <span>${esc(fmtDate(r.date, 'long'))}</span>
+      </div>
+    </div>
+
+    ${fasciaReso(r)}
 
     <button class="detail__hero" data-zoom aria-label="Apri la foto a schermo intero">
       <img id="detail-photo" alt="Foto dello scontrino" src="${thumbURL(r)}">
@@ -469,18 +574,7 @@ async function renderDetail() {
     <div class="detail__gallery" id="detail-gallery" hidden></div>
 
     <div class="detail__info">
-      <div class="detail__head">
-        ${r.amount != null ? `<div class="detail__amount">${esc(fmtMoney(r.amount, r.currency || cur())).replace(/[^\d\s., ]+/g, (x) => `<span class="valuta">${x}</span>`)}</div>` : ''}
-        <div class="detail__title">${esc(r.title || 'Scontrino')}</div>
-      </div>
-
-      <div class="detail__tags">
-        <span class="tag">${c.emoji} ${esc(c.label)}</span>
-        <span class="tag">${icon('calendar')} ${esc(fmtDate(r.date, 'long'))}</span>
-        ${deadlineTag(r, 'reso')}${deadlineTag(r, 'garanzia')}
-      </div>
-
-      ${r.note ? `<p class="detail__note">${icon('note')} ${esc(r.note)}</p>` : ''}
+      <dl class="dati">${righeDettaglio(r, quante)}</dl>
 
       <div class="detail__actions">
         <button class="btn" data-edit>${icon('edit')} Modifica</button>
@@ -495,6 +589,10 @@ async function renderDetail() {
   const urls = photos.map((p) => blobURL(`p:${p.id}`, p.blob));
   const imgEl = $('#detail-photo', box);
   if (urls[0]) imgEl.src = urls[0];
+
+  // il peso si sa solo dopo aver letto le foto: arriva nella sua riga
+  const peso = $('#detail-peso', box);
+  if (peso) peso.textContent = `· ${fmtBytes(sum(photos, (p) => p.blob?.size || 0))}`;
 
   const contatore = $('.detail__count', box);
   if (urls.length > 1) {
@@ -516,11 +614,15 @@ async function renderDetail() {
   });
   $('[data-back]', box).addEventListener('click', () => history.back());
   $('[data-edit]', box).addEventListener('click', () => openEditor({ receipt: r }));
+  $('[data-edit-amount]', box)?.addEventListener('click', () => openEditor({ receipt: r, focus: 'amount' }));
+  $('[data-reso-fatto]', box)?.addEventListener('click', () => segnaReso(r, true));
+  $('[data-reso-annulla]', box)?.addEventListener('click', () => segnaReso(r, false));
   $('[data-fav]', box).addEventListener('click', () => toggleFavorite(r));
   $('[data-share]', box).addEventListener('click', () => shareReceipt(r, photos));
   $('[data-more]', box).addEventListener('click', () => openActionSheet(r.title || 'Scontrino', [
     { icon: 'image', label: quante > 1 ? `${quante} foto` : '1 foto',
       hint: `Aggiunto ${fmtRelative(r.createdAt)}`, onClick: () => openEditor({ receipt: r }) },
+    { icon: 'copy', label: 'Copia i dati', hint: 'Negozio, importo e data, da incollare altrove', onClick: () => copiaDati(r) },
     { icon: 'download', label: 'Salva le foto sul dispositivo', hint: 'I file JPEG originali', onClick: () => downloadPhotos(r, photos) },
     { icon: 'copy', label: 'Duplica scontrino', hint: 'Utile per spese ricorrenti', onClick: () => duplicateReceipt(r, photos) },
     { icon: 'trash', label: 'Sposta nel cestino', danger: true, onClick: () => trashReceipt(r, true) },
@@ -622,7 +724,9 @@ let deadlineFilter = 'tutte';
 function deadlineEntries(kind = 'tutte') {
   const out = [];
   for (const r of liveReceipts()) {
-    if (kind !== 'garanzia' && r.returnUntil) {
+    // Un reso già fatto non è più una scadenza: smette di comparire
+    // fra gli avvisi, che altrimenti chiamerebbero a vuoto.
+    if (kind !== 'garanzia' && r.returnUntil && !r.returnDoneAt) {
       out.push({ receipt: r, kind: 'reso', date: r.returnUntil, days: daysLeft(r.returnUntil) });
     }
     if (kind !== 'reso' && r.warrantyUntil) {
